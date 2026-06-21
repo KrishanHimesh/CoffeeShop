@@ -20,12 +20,19 @@ export default function Dashboard({ products, sales, workers, profile, settings,
   const stats = useMemo(() => {
     const safeSales = sales || [];
     const safeProducts = products || [];
-    
+
+    const startOfWeek = new Date(now); startOfWeek.setDate(now.getDate() - now.getDay()); startOfWeek.setHours(0,0,0,0);
+
     const todaySales  = safeSales.filter(s => new Date(s.date).toDateString() === today);
+    const weekSales   = safeSales.filter(s => new Date(s.date) >= startOfWeek);
     const monthSales  = safeSales.filter(s => { const d = new Date(s.date); return `${d.getFullYear()}-${d.getMonth()}` === thisMonth; });
     const todayRev    = todaySales.reduce((a,s)=>a+s.total,0);
+    const weekRev     = weekSales.reduce((a,s)=>a+s.total,0);
     const monthRev    = monthSales.reduce((a,s)=>a+s.total,0);
     const totalRev    = safeSales.reduce((a,s)=>a+s.total,0);
+    const todayProfit = todaySales.reduce((a,s)=>a+(s.profit||0),0);
+    const weekProfit  = weekSales.reduce((a,s)=>a+(s.profit||0),0);
+    const monthProfit = monthSales.reduce((a,s)=>a+(s.profit||0),0);
     const totalProfit = safeSales.reduce((a,s)=>a+(s.profit||0),0);
     const lowStock    = safeProducts.filter(p=>p.stock>0 && p.stock<=p.minStock);
     const outStock    = safeProducts.filter(p=>p.stock===0);
@@ -57,7 +64,9 @@ export default function Dashboard({ products, sales, workers, profile, settings,
       last7.push({ label: d.toLocaleDateString('en',{weekday:'short'}), rev });
     }
 
-    return { todaySales, monthSales, todayRev, monthRev, totalRev, totalProfit, lowStock, outStock, totalItems, byCat, byWorker, last7 };
+    return { todaySales, weekSales, monthSales, todayRev, weekRev, monthRev, totalRev,
+      todayProfit, weekProfit, monthProfit, totalProfit,
+      lowStock, outStock, totalItems, byCat, byWorker, last7 };
   }, [sales, products, today, thisMonth]);
 
   const maxRev = Math.max(...stats.last7.map(d=>d.rev), 1);
@@ -67,7 +76,7 @@ export default function Dashboard({ products, sales, workers, profile, settings,
       <div className="bs-dash-header">
         <div>
           <h2 className="bs-h2">Dashboard</h2>
-          <p className="bs-muted">Welcome back, <strong style={{color:'#38bdf8'}}>{profile?.name}</strong> · {new Date().toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'})}</p>
+          <p className="bs-muted">Welcome back, <strong style={{color:'var(--bs-accent, #38bdf8)'}}>{profile?.name}</strong> · {new Date().toLocaleDateString('en-AU',{weekday:'long',day:'numeric',month:'long'})}</p>
         </div>
       </div>
 
@@ -79,6 +88,31 @@ export default function Dashboard({ products, sales, workers, profile, settings,
         <StatCard icon="💵" label="Total Profit"   val={fmt(stats.totalProfit)}sub="gross" col="b" fontStyle={fontStyle}/>
         <StatCard icon="⚠️" label="Low Stock"      val={stats.lowStock.length} sub="items" col="o" fontStyle={fontStyle}/>
         <StatCard icon="❌" label="Out of Stock"   val={stats.outStock.length} sub="items" col="r" fontStyle={fontStyle}/>
+      </div>
+
+      {/* Sales & Gross Profit widget */}
+      <div className="bs-dcard" style={{marginBottom:'16px'}}>
+        <p className="bs-dcard-ttl">💵 Sales &amp; Gross Profit</p>
+        <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(150px,1fr))',gap:'12px',marginTop:'8px'}}>
+          {[
+            { label:'Today',     rev:stats.todayRev,  profit:stats.todayProfit },
+            { label:'This Week', rev:stats.weekRev,   profit:stats.weekProfit  },
+            { label:'This Month',rev:stats.monthRev,  profit:stats.monthProfit },
+            { label:'All Time',  rev:stats.totalRev,  profit:stats.totalProfit },
+          ].map(p=>{
+            const margin = p.rev > 0 ? ((p.profit/p.rev)*100).toFixed(0) : 0;
+            return (
+              <div key={p.label} style={{background:'var(--bs-bg2, #1a2540)',border:'1px solid var(--bs-border, #2a3a5c)',borderRadius:'var(--bs-radius, 10px)',padding:'12px'}}>
+                <p style={{fontSize:'11px',color:'var(--bs-text3, #64748b)',textTransform:'uppercase',letterSpacing:'.04em',marginBottom:'6px'}}>{p.label}</p>
+                <p style={{fontSize:'18px',fontWeight:700,color:'var(--bs-text, #e2e8f0)',marginBottom:'2px'}}>{fmt(p.rev)}</p>
+                <p style={{fontSize:'12px',color:'var(--bs-text2, #94a3b8)'}}>
+                  Profit <strong style={{color:'var(--bs-success, #4ade80)'}}>{fmt(p.profit)}</strong>
+                  <span style={{color:'var(--bs-text3, #64748b)'}}> · {margin}% margin</span>
+                </p>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       <div className="bs-dash3">
@@ -130,7 +164,7 @@ export default function Dashboard({ products, sales, workers, profile, settings,
             <div key={cat} className="bs-cat-row">
               <span>{CATEGORIES[cat]?.icon||'📦'} {cat}</span>
               <div className="bs-cat-bar-wrap">
-                <div className="bs-cat-bar" style={{width:`${Math.min((v.rev/Math.max(...Object.values(stats.byCat).map(x=>x.rev),1))*100,100)}%`,background:CATEGORIES[cat]?.color||'#64748b'}} />
+                <div className="bs-cat-bar" style={{width:`${Math.min((v.rev/Math.max(...Object.values(stats.byCat).map(x=>x.rev),1))*100,100)}%`,background:CATEGORIES[cat]?.color||'var(--bs-text3, #64748b)'}} />
               </div>
               <span className="bs-cat-val">{fmt(v.rev)}</span>
             </div>
@@ -159,7 +193,7 @@ export default function Dashboard({ products, sales, workers, profile, settings,
           {sales.slice(0,8).map(s=>(
             <div key={s.id} className="bs-rec-row">
               <div>
-                <p style={{fontSize:'12px',fontWeight:700,color:'#38bdf8',fontFamily:"'Space Mono',monospace"}}>#{(s.id||'').slice(-5).toUpperCase()}</p>
+                <p style={{fontSize:'12px',fontWeight:700,color:'var(--bs-accent, #38bdf8)',fontFamily:"'Space Mono',monospace"}}>#{(s.id||'').slice(-5).toUpperCase()}</p>
                 <p className="bs-muted" style={{fontSize:'11px'}}>{s.workerName} · {new Date(s.date).toLocaleTimeString()}</p>
               </div>
               <div style={{textAlign:'right'}}>

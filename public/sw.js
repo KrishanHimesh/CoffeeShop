@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vendrpro-v1';
+const CACHE_NAME = 'four-beans-v1';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

@@ -775,12 +775,21 @@ export function useStore() {
       }
 
       if (hasRecipe) {
+        // Combine multipliers from every chosen modifier (e.g. Size: Large) —
+        // if multiple modifiers touch the same ingredient, multiply them together.
+        const combinedMultipliers = {}; // productId -> multiplier
+        for (const m of (item.modifiers || [])) {
+          for (const [ingId, mult] of Object.entries(m.qtyMultipliers || {})) {
+            combinedMultipliers[ingId] = (combinedMultipliers[ingId] ?? 1) * mult;
+          }
+        }
         for (const r of prod.recipe) {
           const ing = products.find(p => p.id === r.productId);
           if (!ing) continue;
           const ingUnitBase    = UNIT_TO_BASE[ing.unit] ?? 1;
           const recipeUnitBase = UNIT_TO_BASE[r.unit]   ?? 1;
-          const qtyInIngUnit = (r.qty * recipeUnitBase / ingUnitBase) * item.qty;
+          const multiplier      = combinedMultipliers[r.productId] ?? 1;
+          const qtyInIngUnit = (r.qty * recipeUnitBase / ingUnitBase) * multiplier * item.qty;
           stockDeltas[ing.id] = (stockDeltas[ing.id] || 0) + qtyInIngUnit;
         }
       }

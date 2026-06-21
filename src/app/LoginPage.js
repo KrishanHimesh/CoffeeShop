@@ -6,12 +6,13 @@ import React, { useState } from 'react';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, writeBatch, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from './firebase';
+import logo from './images/four-beans-logo.png';
 
 const INDUSTRIES = [
-  { id: 'bookshop', label: '📚 Bookshop / Stationery' },
-  { id: 'grocery',  label: '🛒 Grocery / Convenience' },
-  { id: 'pharmacy', label: '💊 Pharmacy / Health'     },
-  { id: 'general',  label: '📦 General Retail'        },
+  { id: 'coffee',  label: '☕ Coffee Truck' },
+  { id: 'bakery',  label: '🥐 Bakery'      },
+  { id: 'roastery',  label: '🌱 Roastery'      },
+  { id: 'cafe',   label: '📦 Café'         },
 ];
 
 function makeTenantId(businessName) {
@@ -74,7 +75,7 @@ export default function LoginPage({ onLogin, loading }) {
   const [confirmPass,  setConfirmPass]  = useState('');
   const [businessName, setBusinessName] = useState('');
   const [phone,        setPhone]        = useState('');
-  const [industry,     setIndustry]     = useState('bookshop');
+  const [industry,     setIndustry]     = useState('cafe');
   const [error,        setError]        = useState('');
   const [busy,         setBusy]         = useState(false);
   const [status,       setStatus]       = useState('');
@@ -150,9 +151,9 @@ export default function LoginPage({ onLogin, loading }) {
     <div className="bs-login-bg">
       <div className="bs-login-card">
         <div className="bs-login-logo">
-          <span className="bs-login-icon">🏬</span>
-          <h1 className="bs-login-title">VendrPro</h1>
-          <p className="bs-login-sub">Smart Business Management</p>
+          <img src={logo} alt="The Four Beans" style={{ width: 64, height: 64, borderRadius: '50%', marginBottom: 8 , display: 'block', marginInline: 'auto' }} />
+          <h1 className="bs-login-title">The Four Beans</h1>
+          <p className="bs-login-sub">Good Coffee · Good People · Good Times</p>
         </div>
 
         {/* Mode tabs */}
@@ -161,8 +162,8 @@ export default function LoginPage({ onLogin, loading }) {
             <button key={m.id} onClick={() => { setMode(m.id); setError(''); }}
               style={{
                 flex:1, padding:'8px', borderRadius:7, border:'none',
-                background: mode===m.id ? 'rgba(56,189,248,.15)' : 'transparent',
-                color: mode===m.id ? '#38bdf8' : '#64748b',
+                background: mode===m.id ? 'rgba(233,138,46,.15)' : 'transparent',
+                color: mode===m.id ? '#e98a2e' : '#64748b',
                 fontWeight: mode===m.id ? 600 : 400,
                 cursor:'pointer', fontSize:14,
               }}>
@@ -196,7 +197,7 @@ export default function LoginPage({ onLogin, loading }) {
           <form className="bs-login-form" onSubmit={handleSignUp}>
             <div className="bs-login-field">
               <label>Business Name *</label>
-              <input type="text" placeholder="e.g. Unity Book Shop"
+              <input type="text" placeholder="e.g. The Four Beans"
                 value={businessName} onChange={e => setBusinessName(e.target.value)} required/>
             </div>
 
@@ -209,7 +210,7 @@ export default function LoginPage({ onLogin, loading }) {
             <div className="bs-login-field">
               <label>Industry</label>
               <select value={industry} onChange={e => setIndustry(e.target.value)}
-                style={{ width:'100%', padding:'10px 12px', borderRadius:8, background:'#0f172a', border:'1px solid #1e293b', color:'#f1f5f9', fontSize:14 }}>
+                style={{ width:'100%', padding:'10px 12px', borderRadius:8, background:'var(--bs-input, #0f172a)', border:'1px solid var(--bs-border, #1e293b)', color:'var(--bs-text, #f1f5f9)', fontSize:14 }}>
                 {INDUSTRIES.map(i => <option key={i.id} value={i.id}>{i.label}</option>)}
               </select>
             </div>

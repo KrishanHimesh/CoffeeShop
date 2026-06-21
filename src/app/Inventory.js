@@ -317,10 +317,14 @@ export default function Inventory({ products, photos = {}, onAdd, onUpdate, onDe
 // Format: CAT2-BRD2-PRD2-SZ2-VV  (always 14 chars: 2+1+2+1+2+1+2+1+2 = fixed)
 // e.g. BK-NP-CO-5K-01
 const CATEGORY_CODES = {
-  Books:     'BK',
-  Groceries: 'GR',
-  Supplies:  'SP',
-  Other:     'OT',
+  Coffee:       'CO',
+  Tea:          'TE',
+  'Cold Drinks':'CD',
+  Pastries:     'PA',
+  Food:         'FD',
+  Desserts:     'DS',
+  Retail:       'RT',
+  Other:        'OT',
 };
 
 function slugPart(str, len) {
@@ -412,6 +416,7 @@ function ProductForm({ product, onSave, onClose, fmt, existingCompanies, existin
       ? {...g, options: g.options.filter((_,j)=>j!==oIdx)}
       : g));
   };
+
 
 
   // Cost per unit for an ingredient: cost is stored per the ingredient's own `unit`
@@ -758,13 +763,34 @@ function ProductForm({ product, onSave, onClose, fmt, existingCompanies, existin
                   <button type="button" className="bs-act del" style={{padding:'5px 8px'}} onClick={()=>removeGroup(gIdx)}>✕</button>
                 </div>
                 {g.options.map((o, oIdx) => (
-                  <div key={oIdx} style={{display:'flex',gap:'6px',marginBottom:'5px',alignItems:'center',paddingLeft:'8px'}}>
-                    <input type="text" value={o.name} onChange={e=>updateOption(gIdx,oIdx,{name:e.target.value})}
-                      style={{flex:2}} placeholder="Option name (e.g. Large)"/>
-                    <span style={{fontSize:'11px',color:'var(--bs-text3, #64748b)'}}>+$</span>
-                    <input type="number" step="0.1" min="0" value={o.priceDelta} onChange={e=>updateOption(gIdx,oIdx,{priceDelta:+e.target.value||0})}
-                      style={{width:'70px'}}/>
-                    <button type="button" className="bs-act del" style={{padding:'4px 7px'}} onClick={()=>removeOption(gIdx,oIdx)}>✕</button>
+                  <div key={oIdx} style={{marginBottom:'8px',paddingLeft:'8px',borderLeft:'2px solid var(--bs-border, #2a3a5c)'}}>
+                    <div style={{display:'flex',gap:'6px',alignItems:'center'}}>
+                      <input type="text" value={o.name} onChange={e=>updateOption(gIdx,oIdx,{name:e.target.value})}
+                        style={{flex:2}} placeholder="Option name (e.g. Large)"/>
+                      <span style={{fontSize:'11px',color:'var(--bs-text3, #64748b)'}}>+$</span>
+                      <input type="number" step="0.1" min="0" value={o.priceDelta} onChange={e=>updateOption(gIdx,oIdx,{priceDelta:+e.target.value||0})}
+                        style={{width:'70px'}}/>
+                      <button type="button" className="bs-act del" style={{padding:'4px 7px'}} onClick={()=>removeOption(gIdx,oIdx)}>✕</button>
+                    </div>
+                    {/* Per-ingredient quantity multipliers — only relevant once a recipe exists */}
+                    {hasRecipe && recipe.length > 0 && (
+                      <div style={{display:'flex',flexWrap:'wrap',gap:'8px',marginTop:'4px',marginLeft:'4px'}}>
+                        {recipe.map((r, rIdx) => {
+                          const ing = ingredientOptions.find(i=>i.id===r.productId) || (allProducts||[]).find(i=>i.id===r.productId);
+                          const mult = o.qtyMultipliers?.[r.productId] ?? 1;
+                          return (
+                            <label key={rIdx} style={{display:'flex',alignItems:'center',gap:'4px',fontSize:'11px',color:'var(--bs-text3, #64748b)'}}>
+                              {ing?.name||'?'} ×
+                              <input type="number" step="0.1" min="0" value={mult}
+                                onChange={e=>updateOption(gIdx,oIdx,{
+                                  qtyMultipliers: { ...(o.qtyMultipliers||{}), [r.productId]: +e.target.value||0 }
+                                })}
+                                style={{width:'55px',padding:'2px 4px',fontSize:'11px'}}/>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
                 ))}
                 <button type="button" className="bs-sec" style={{padding:'4px 10px',fontSize:'11px',marginLeft:'8px'}} onClick={()=>addOption(gIdx)}>+ Add option</button>
