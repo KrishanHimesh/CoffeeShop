@@ -1,0 +1,14 @@
+{
+  "buildCommand": "CI=false GENERATE_SOURCEMAP=false react-scripts build",
+  "outputDirectory": "build",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/"
+    }
+  ],
+  "env": {
+    "GENERATE_SOURCEMAP": "false",
+    "CI": "false"
+  }
+}
