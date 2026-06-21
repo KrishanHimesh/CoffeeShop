@@ -25,6 +25,9 @@ firebase-debug.*.log
 firestore-debug.log
 ui-debug.log
 database-debug.log
+src/firebase.js
+firebase.js
+
 
 # ── OS files ───────────────────────────────────────────────────────────────────
 .DS_Store
@@ -42,3 +45,4 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 src/app/firebase.js
+

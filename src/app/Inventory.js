@@ -3,6 +3,14 @@ import { makeFmt, CATEGORIES as BASE_CATEGORIES } from './constants';
 import BulkImport from './BulkImport';
 
 const BLANK = { productCode:'', name:'', category:'Books', company:'', size:'', price:'', cost:'', stock:'', minStock:'3', unit:'ea', barcode:'', photoUrl:'', isIngredient:false, recipe:[], modifierGroups:[] };
+
+// Round a stock/quantity number to at most 2 decimal places, trimming trailing
+// zeros (e.g. 7.494000001 -> 7.49, 10.00 -> 10) — guards against floating-point
+// drift from repeated gram/ml ingredient deductions.
+const fmtQty = n => {
+  if (n === undefined || n === null || isNaN(n)) return '0';
+  return (Math.round(n * 100) / 100).toString();
+};
 const getCompanies = products => [...new Set(products.map(p=>p.company).filter(Boolean))].sort();
 
 // ── Rename Brand Modal ────────────────────────────────────────────────────────
@@ -256,7 +264,7 @@ export default function Inventory({ products, photos = {}, onAdd, onUpdate, onDe
                   <td><strong>{fmt(p.price)}</strong></td>
                   <td>{fmt(p.cost||0)}</td>
                   <td><span style={{color:margin>30?'var(--bs-success, #34d399)':margin>15?'var(--bs-warning, #fb923c)':'var(--bs-danger, #f87171)'}}>{margin}%</span></td>
-                  <td><span className={'bs-snum '+(p.stock===0?'red':p.stock<=p.minStock?'ora':'grn')}>{p.stock}</span></td>
+                  <td><span className={'bs-snum '+(p.stock<0?'red':p.stock===0?'red':p.stock<=p.minStock?'ora':'grn')} title={p.stock<0?'Stock went negative — reconcile when you can':''}>{fmtQty(p.stock)}{p.stock<0?' ⚠️':''}</span></td>
                   <td className="bs-muted">{p.unit||'ea'}</td>
                   <td className="bs-muted">{p.minStock}</td>
                   <td className="bs-muted" style={{fontSize:'11px'}}>{p.lastTopup||'—'}</td>
@@ -482,7 +490,6 @@ function ProductForm({ product, onSave, onClose, fmt, existingCompanies, existin
     if (!f.price || +f.price <= 0) e.price    = 'Sale price must be greater than 0';
     if (f.cost && +f.cost < 0)  e.cost        = 'Cost price cannot be negative';
     if (f.stock === '' || f.stock === undefined) e.stock = 'Stock quantity is required';
-    if (+f.stock < 0)           e.stock       = 'Stock cannot be negative';
     if (!f.productCode?.trim()) e.productCode = 'Product code is required';
     const dup = existingCodes.find(c => c === f.productCode && (!product || product.productCode !== c));
     if (dup)                    e.productCode = 'This product code already exists — change a field or edit version manually';
@@ -494,7 +501,7 @@ function ProductForm({ product, onSave, onClose, fmt, existingCompanies, existin
     e.preventDefault();
     const errs = validate();
     if (Object.keys(errs).length) { setErrors(errs); return; }
-    onSave({ ...f, price: +f.price, cost: +(f.cost || 0), stock: +f.stock, minStock: +(f.minStock || 3), recipe, isIngredient: !!f.isIngredient,
+    onSave({ ...f, price: +f.price, cost: +(f.cost || 0), stock: Math.round(+f.stock*100)/100, minStock: +(f.minStock || 3), recipe, isIngredient: !!f.isIngredient,
       modifierGroups: modifierGroups.filter(g=>g.options.length>0) });
   };
 
@@ -772,21 +779,38 @@ function ProductForm({ product, onSave, onClose, fmt, existingCompanies, existin
                         style={{width:'70px'}}/>
                       <button type="button" className="bs-act del" style={{padding:'4px 7px'}} onClick={()=>removeOption(gIdx,oIdx)}>✕</button>
                     </div>
-                    {/* Per-ingredient quantity multipliers — only relevant once a recipe exists */}
+                    {/* Per-ingredient overrides — only relevant once a recipe exists.
+                        Each recipe line can be: substituted for a different inventory item
+                        (e.g. Milk -> Soy Milk) and/or scaled by a quantity multiplier (e.g. Large = more). */}
                     {hasRecipe && recipe.length > 0 && (
-                      <div style={{display:'flex',flexWrap:'wrap',gap:'8px',marginTop:'4px',marginLeft:'4px'}}>
+                      <div style={{display:'flex',flexDirection:'column',gap:'6px',marginTop:'6px',marginLeft:'4px'}}>
                         {recipe.map((r, rIdx) => {
-                          const ing = ingredientOptions.find(i=>i.id===r.productId) || (allProducts||[]).find(i=>i.id===r.productId);
+                          const baseIng = (allProducts||[]).find(i=>i.id===r.productId);
+                          const swapId = o.ingredientSwaps?.[r.productId] || '';
                           const mult = o.qtyMultipliers?.[r.productId] ?? 1;
+                          // Substitution candidates: any other raw ingredient with the same unit family
+                          // (so grams swap for grams, ml swap for ml — avoids nonsensical substitutions)
+                          const unitFamily = u => (u==='g'||u==='kg') ? 'mass' : (u==='ml'||u==='L') ? 'volume' : 'unit';
+                          const swapCandidates = (allProducts||[]).filter(i =>
+                            i.isIngredient && i.id !== r.productId && unitFamily(i.unit) === unitFamily(baseIng?.unit));
                           return (
-                            <label key={rIdx} style={{display:'flex',alignItems:'center',gap:'4px',fontSize:'11px',color:'var(--bs-text3, #64748b)'}}>
-                              {ing?.name||'?'} ×
+                            <div key={rIdx} style={{display:'flex',alignItems:'center',gap:'6px',fontSize:'11px',color:'var(--bs-text3, #64748b)',flexWrap:'wrap'}}>
+                              <span style={{minWidth:'90px'}}>{baseIng?.name||'?'}:</span>
+                              <select value={swapId} onChange={e=>updateOption(gIdx,oIdx,{
+                                  ingredientSwaps: { ...(o.ingredientSwaps||{}), [r.productId]: e.target.value }
+                                })}
+                                style={{fontSize:'11px',padding:'3px 6px',flex:1,minWidth:'120px'}}>
+                                <option value="">— use default ({baseIng?.name||'?'})</option>
+                                {swapCandidates.map(c=><option key={c.id} value={c.id}>Use {c.name} instead</option>)}
+                              </select>
+                              <span>×</span>
                               <input type="number" step="0.1" min="0" value={mult}
                                 onChange={e=>updateOption(gIdx,oIdx,{
                                   qtyMultipliers: { ...(o.qtyMultipliers||{}), [r.productId]: +e.target.value||0 }
                                 })}
-                                style={{width:'55px',padding:'2px 4px',fontSize:'11px'}}/>
-                            </label>
+                                title="Quantity multiplier (e.g. 1.3 = 30% more)"
+                                style={{width:'50px',padding:'2px 4px',fontSize:'11px'}}/>
+                            </div>
                           );
                         })}
                       </div>
@@ -806,9 +830,10 @@ function ProductForm({ product, onSave, onClose, fmt, existingCompanies, existin
         <div className="bs-frow">
           <div className="bs-fg">
             <label>Stock Qty * {hasRecipe && <span style={{color:'var(--bs-text3, #64748b)',fontWeight:400,fontSize:'11px'}}>(auto, from ingredient stock)</span>}</label>
-            <input type="number" min="0" value={f.stock||''} disabled={hasRecipe}
+            <input type="number" value={f.stock||''} disabled={hasRecipe}
               onChange={e=>{set('stock',e.target.value);clearErr('stock');}} placeholder="0"
               style={{...fieldStyle('stock'), opacity: hasRecipe ? 0.7 : 1}}/>
+            {f.stock<0 && !hasRecipe && <p style={{fontSize:'11px',color:'var(--bs-warning, #fb923c)',marginTop:'3px'}}>⚠️ Negative stock — flagged as a reconciliation item.</p>}
             {hasRecipe && <p style={{fontSize:'11px',color:'var(--bs-text3, #64748b)',marginTop:'3px'}}>Limited by lowest available ingredient — restock ingredients to increase this.</p>}
             <Err k="stock"/>
           </div>

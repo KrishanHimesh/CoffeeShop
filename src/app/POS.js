@@ -67,20 +67,26 @@ export default function POS({ products, onSale, profile, settings, creditCustome
   for (const item of cart) {
     const prod = products.find(p => p.id === (item.baseProductId || item.id));
     if (!prod?.recipe) continue;
-    // Combine multipliers from this cart item's chosen modifiers (e.g. Large = more milk)
+    // Combine multipliers and ingredient swaps from this cart item's chosen modifiers
+    // (e.g. Size: Large = more milk; Milk: Soy = swap which ingredient gets reserved)
     const combinedMultipliers = {};
+    const combinedSwaps = {};
     for (const m of (item.modifiers || [])) {
       for (const [ingId, mult] of Object.entries(m.qtyMultipliers || {})) {
         combinedMultipliers[ingId] = (combinedMultipliers[ingId] ?? 1) * mult;
       }
+      for (const [ingId, swapId] of Object.entries(m.ingredientSwaps || {})) {
+        if (swapId) combinedSwaps[ingId] = swapId;
+      }
     }
     for (const r of prod.recipe) {
       const recipeUnitBase = UNIT_TO_BASE[r.unit] ?? 1;
-      const ing = products.find(p => p.id === r.productId);
+      const actualIngId = combinedSwaps[r.productId] || r.productId;
+      const ing = products.find(p => p.id === actualIngId);
       const ingUnitBase = ing ? (UNIT_TO_BASE[ing.unit] ?? 1) : 1;
       const multiplier = combinedMultipliers[r.productId] ?? 1;
       const qtyInIngUnit = (r.qty * recipeUnitBase / ingUnitBase) * multiplier * item.qty;
-      cartIngredientReserved[r.productId] = (cartIngredientReserved[r.productId] || 0) + qtyInIngUnit;
+      cartIngredientReserved[actualIngId] = (cartIngredientReserved[actualIngId] || 0) + qtyInIngUnit;
     }
   }
 
@@ -123,18 +129,23 @@ export default function POS({ products, onSale, profile, settings, creditCustome
     const limit = p.recipe?.length ? maxMakeable(p, products, cartIngredientReserved) : p.stock;
     if (limit <= 0) { setModalProduct(null); return; }
 
-    // True cost for this specific combo: recompute from recipe with multipliers applied,
-    // so a Large (more milk) correctly costs more than a Small for margin/profit reporting.
+    // True cost for this specific combo: recompute from recipe with swaps and
+    // multipliers applied, so Soy Milk / Large correctly cost more than the default.
     let trueCost = p.cost || 0;
     if (p.recipe?.length) {
       const combinedMultipliers = {};
+      const combinedSwaps = {};
       for (const m of chosenModifiers) {
         for (const [ingId, mult] of Object.entries(m.qtyMultipliers || {})) {
           combinedMultipliers[ingId] = (combinedMultipliers[ingId] ?? 1) * mult;
         }
+        for (const [ingId, swapId] of Object.entries(m.ingredientSwaps || {})) {
+          if (swapId) combinedSwaps[ingId] = swapId;
+        }
       }
       trueCost = p.recipe.reduce((sum, r) => {
-        const ing = products.find(i => i.id === r.productId);
+        const actualIngId = combinedSwaps[r.productId] || r.productId;
+        const ing = products.find(i => i.id === actualIngId);
         if (!ing) return sum;
         const ingUnitBase = UNIT_TO_BASE[ing.unit] ?? 1;
         const recipeUnitBase = UNIT_TO_BASE[r.unit] ?? 1;
@@ -498,7 +509,7 @@ function ModifierModal({ product, fmt, onCancel, onConfirm }) {
       .filter(g => selections[g.name])
       .map(g => {
         const opt = g.options.find(o => o.name === selections[g.name]);
-        return { groupName: g.name, optionName: opt.name, priceDelta: opt.priceDelta || 0, qtyMultipliers: opt.qtyMultipliers || {} };
+        return { groupName: g.name, optionName: opt.name, priceDelta: opt.priceDelta || 0, qtyMultipliers: opt.qtyMultipliers || {}, ingredientSwaps: opt.ingredientSwaps || {} };
       });
     onConfirm(chosen);
   };

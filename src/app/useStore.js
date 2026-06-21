@@ -341,6 +341,7 @@ export function useStore() {
   const [suppliers,       setSuppliers]      = useState(() => lsLoad('bs2_suppliers',       []));
   const [stockReceipts,   setStockReceipts]  = useState(() => lsLoad('bs2_stockReceipts',   []));
   const [creditCustomers, setCreditCustomers]= useState(() => lsLoad('bs2_creditCustomers', []));
+  const [kitchenOrders,   setKitchenOrders]  = useState(() => lsLoad('bs2_kitchenOrders',   []));
   const [activityLog,     setActivityLog]    = useState(() => lsLoad('bs2_activityLog',     []));
   const [loading,         setLoading]        = useState(true);
   const [fbActive,        setFbActive]       = useState(false);
@@ -583,6 +584,20 @@ export function useStore() {
       setCreditCustomers(data); lsSave('bs2_creditCustomers', data);
     }));
 
+    // Kitchen orders — active tickets (new/preparing/ready), oldest first so
+    // the kitchen display works through them in the order they came in
+    unsubs.push(onSnapshot(
+      query(tenantCol(tid, 'kitchenOrders'), orderBy('createdAt', 'asc')),
+      snap => {
+        trackUsage('read', 'kitchenOrders', snap.docs.length);
+        const data = snap.docs.map(d => {
+          const raw = d.data();
+          return { ...raw, id: d.id, date: raw.createdAt?.toDate?.()?.toISOString() || raw.date || new Date().toISOString() };
+        });
+        setKitchenOrders(data); lsSave('bs2_kitchenOrders', data);
+      }
+    ));
+
     // Stock receipts
     unsubs.push(onSnapshot(
       query(tenantCol(tid, 'stockReceipts'), orderBy('createdAt', 'desc')),
@@ -684,6 +699,7 @@ export function useStore() {
     }
 
     logActivity('ADD_PRODUCT', `Added product: ${data.name}`, { productName: data.name, category: data.category });
+    return docRef.id;
   }, [tenantId, logActivity]);
 
   const updateProduct = useCallback(async (id, data) => {
@@ -757,6 +773,31 @@ export function useStore() {
     trackUsage('write', 'sales');
     await addDoc(tenantCol(tenantId, 'sales'), sale);
 
+    // ── Kitchen order: only created when this sale includes made-to-order
+    // (recipe-based) items — bottled drinks, retail, etc. don't need a kitchen ticket.
+    const kitchenItems = saleData.items
+      .map(item => ({ item, prod: products.find(p => p.id === item.id) }))
+      .filter(({ prod }) => prod?.recipe?.length > 0)
+      .map(({ item, prod }) => ({
+        productId: item.id,
+        name: item.name,
+        qty: item.qty,
+        modifiers: item.modifiers || [],
+        category: prod.category,
+      }));
+    if (kitchenItems.length > 0) {
+      trackUsage('write', 'kitchenOrders');
+      await addDoc(tenantCol(tenantId, 'kitchenOrders'), {
+        receiptId,
+        items: kitchenItems,
+        orderType: saleData.orderType || 'Takeaway',
+        status: 'new', // new -> preparing -> ready -> completed
+        workerName: profile?.name || 'Unknown',
+        createdAt: serverTimestamp(),
+        date: new Date().toISOString(),
+      });
+    }
+
     // Unit conversion so recipe quantities (g/ml) match ingredient stock units (kg/L etc.)
     const UNIT_TO_BASE = { g:0.001, kg:1, ml:0.001, L:1, ea:1, box:1, pack:1, bag:1, btl:1, ream:1, roll:1, dozen:1 };
 
@@ -775,16 +816,24 @@ export function useStore() {
       }
 
       if (hasRecipe) {
-        // Combine multipliers from every chosen modifier (e.g. Size: Large) —
-        // if multiple modifiers touch the same ingredient, multiply them together.
-        const combinedMultipliers = {}; // productId -> multiplier
+        // Combine multipliers and ingredient swaps from every chosen modifier
+        // (e.g. Size: Large = more milk; Milk: Soy = swap milk ingredient entirely).
+        // If multiple modifiers touch the same ingredient, multipliers stack; last swap wins.
+        const combinedMultipliers = {}; // original recipe productId -> multiplier
+        const combinedSwaps = {};       // original recipe productId -> replacement productId
         for (const m of (item.modifiers || [])) {
           for (const [ingId, mult] of Object.entries(m.qtyMultipliers || {})) {
             combinedMultipliers[ingId] = (combinedMultipliers[ingId] ?? 1) * mult;
           }
+          for (const [ingId, swapId] of Object.entries(m.ingredientSwaps || {})) {
+            if (swapId) combinedSwaps[ingId] = swapId;
+          }
         }
         for (const r of prod.recipe) {
-          const ing = products.find(p => p.id === r.productId);
+          // If this modifier swapped the ingredient (e.g. Full Cream -> Soy), deduct from
+          // the replacement product instead of the recipe's default.
+          const actualIngId = combinedSwaps[r.productId] || r.productId;
+          const ing = products.find(p => p.id === actualIngId);
           if (!ing) continue;
           const ingUnitBase    = UNIT_TO_BASE[ing.unit] ?? 1;
           const recipeUnitBase = UNIT_TO_BASE[r.unit]   ?? 1;
@@ -798,8 +847,11 @@ export function useStore() {
     for (const [productId, deltaQty] of Object.entries(stockDeltas)) {
       const prod = products.find(p => p.id === productId);
       if (!prod) continue;
+      // Stock is allowed to go negative (e.g. you ran out mid-shift but still served
+      // the drink) — it just flags as an alert rather than blocking the sale.
+      // Rounded to 2dp to avoid floating-point drift from repeated gram/ml deductions.
       await updateDoc(tenantDoc(tenantId, 'products', productId), {
-        stock: Math.max(0, prod.stock - deltaQty),
+        stock: Math.round((prod.stock - deltaQty) * 100) / 100,
       });
     }
     return receiptId;
@@ -876,8 +928,9 @@ export function useStore() {
       for (const item of receiptData.items) {
         const prod = products.find(p => p.id === item.productId);
         if (prod) {
+          const addAmount = item.stockQty ?? item.qty; // stockQty = pack-size-aware total; falls back to raw qty for older receipts
           await updateDoc(tenantDoc(tenantId, 'products', item.productId), {
-            stock: prod.stock + item.qty,
+            stock: Math.round((prod.stock + addAmount) * 100) / 100,
             cost:  item.newCost  || prod.cost,
             price: item.newPrice || prod.price,
             lastTopup: receiptData.date || new Date().toISOString().slice(0,10),
@@ -890,6 +943,19 @@ export function useStore() {
       `Received stock: invoice ${receiptData.invoiceNo||'—'} · ${receiptData.items.length} item(s)`,
       { invoiceNo: receiptData.invoiceNo, supplierName: receiptData.supplierName });
   }, [tenantId, fbActive, profile, products, logActivity]);
+
+  // ── Kitchen Orders ─────────────────────────────────────────────────────────
+  const updateKitchenOrderStatus = useCallback(async (id, status) => {
+    if (!tenantId) throw new Error('Not authenticated');
+    trackUsage('write', 'kitchenOrders');
+    await updateDoc(tenantDoc(tenantId, 'kitchenOrders', id), {
+      status,
+      ...(status === 'preparing' ? { startedAt: serverTimestamp() } : {}),
+      ...(status === 'ready'     ? { readyAt:   serverTimestamp() } : {}),
+      ...(status === 'completed' ? { completedAt: serverTimestamp() } : {}),
+    });
+    logActivity('KITCHEN_ORDER_STATUS', `Order marked ${status}`, { orderId: id, status });
+  }, [tenantId, logActivity]);
 
   // ── Credit Customers ──────────────────────────────────────────────────────
   const addCreditCustomer = useCallback(async (data) => {
@@ -935,6 +1001,7 @@ export function useStore() {
     suppliers, addSupplier, updateSupplier, deleteSupplier,
     stockReceipts, receiveStock,
     creditCustomers, addCreditCustomer, updateCreditCustomer, deleteCreditCustomer,
+    kitchenOrders, updateKitchenOrderStatus,
     activityLog,
   };
 }

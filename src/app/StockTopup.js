@@ -8,6 +8,7 @@ export default function StockTopup({ products, onTopup, onClose, onAddNew, setti
 
   const [selectedId,  setSelectedId]  = useState(preSelectId || '');
   const [qty,         setQty]         = useState('');
+  const [receiveMode, setReceiveMode] = useState('packs'); // 'packs' = qty × pack size, 'units' = raw qty in stock unit
   const [newCost,     setNewCost]     = useState('');
   const [newPrice,    setNewPrice]    = useState('');
   const [receiveDate, setReceiveDate] = useState(today);
@@ -15,9 +16,21 @@ export default function StockTopup({ products, onTopup, onClose, onAddNew, setti
   const [done,        setDone]        = useState(false);
 
   const product = products.find(p => p.id === selectedId);
+  // Pack size: the numeric part of the product's "size" field (e.g. "500" from "500" with unit "g")
+  const packSize = product ? (parseFloat(product.size) || 0) : 0;
+  const hasPackSize = packSize > 0;
+  // Total stock units this top-up will actually add, accounting for pack size
+  const totalAddQty = !qty ? 0 : (receiveMode === 'packs' && hasPackSize ? (+qty * packSize) : +qty);
   const costDiff  = product && newCost  ? (+newCost  - +(product.cost  || 0)) : 0;
   const priceDiff = product && newPrice ? (+newPrice - +(product.price || 0)) : 0;
   const hasPriceDiff = priceDiff !== 0;
+
+  const handleSelectProduct = id => {
+    setSelectedId(id);
+    const p = products.find(x=>x.id===id);
+    const pSize = p ? (parseFloat(p.size) || 0) : 0;
+    setReceiveMode(pSize > 0 ? 'packs' : 'units');
+  };
 
   const productLabel = p =>
     [p.company, p.name, p.size].filter(Boolean).join(' · ');
@@ -26,7 +39,7 @@ export default function StockTopup({ products, onTopup, onClose, onAddNew, setti
     e.preventDefault();
     if (!product || !qty) return;
     await onTopup(product.id, {
-      addQty:      +qty,
+      addQty:      totalAddQty,
       newCost:     newCost  ? +newCost  : product.cost,
       newPrice:    newPrice ? +newPrice : product.price,
       receiveDate,
@@ -40,10 +53,11 @@ export default function StockTopup({ products, onTopup, onClose, onAddNew, setti
       <div style={{fontSize:'40px',marginBottom:'12px'}}>✅</div>
       <h3 style={{marginBottom:'8px'}}>Stock updated!</h3>
       <p className="bs-muted" style={{marginBottom:'8px'}}>
-        Added <strong>{qty}</strong> units of <strong>{product?.name}</strong>
+        Added <strong>{totalAddQty}</strong> {product?.unit||'ea'} of <strong>{product?.name}</strong>
+        {receiveMode==='packs' && hasPackSize && <> ({qty} × {packSize}{product?.unit||''} packs)</>}
       </p>
       <p className="bs-muted" style={{marginBottom:'20px'}}>
-        New stock: <strong style={{color:'#34d399'}}>{(product?.stock||0) + (+qty)}</strong> units
+        New stock: <strong style={{color:'var(--bs-success, #34d399)'}}>{(product?.stock||0) + totalAddQty}</strong> {product?.unit||'ea'}
       </p>
       <div style={{display:'flex',gap:'10px',justifyContent:'center'}}>
         <button className="bs-sec" onClick={onClose}>Done</button>
@@ -63,7 +77,7 @@ export default function StockTopup({ products, onTopup, onClose, onAddNew, setti
         {/* Product selector */}
         <div className="bs-fg">
           <label>Select Product *</label>
-          <select value={selectedId} onChange={e=>setSelectedId(e.target.value)} required>
+          <select value={selectedId} onChange={e=>handleSelectProduct(e.target.value)} required>
             <option value="">— choose a product —</option>
             {Object.keys(CATEGORIES).map(cat => {
               const catProducts = products.filter(p=>p.category===cat);
@@ -84,7 +98,7 @@ export default function StockTopup({ products, onTopup, onClose, onAddNew, setti
           <div className="bs-topup-current">
             <div className="bs-topup-row">
               <span className="bs-muted">Current stock</span>
-              <strong style={{color: product.stock <= product.minStock ? '#fb923c' : '#34d399'}}>
+              <strong style={{color: product.stock <= product.minStock ? 'var(--bs-warning, #fb923c)' : 'var(--bs-success, #34d399)'}}>
                 {product.stock} {product.unit||'ea'}
               </strong>
             </div>
@@ -99,11 +113,33 @@ export default function StockTopup({ products, onTopup, onClose, onAddNew, setti
           </div>
         )}
 
+        {/* Receive mode toggle — only relevant when product has a pack size (e.g. 500g bags) */}
+        {product && hasPackSize && (
+          <div className="bs-fg">
+            <label>Receiving by</label>
+            <div style={{display:'flex',gap:'8px'}}>
+              <button type="button" className={'bs-pm'+(receiveMode==='packs'?' active':'')} style={{flex:1}}
+                onClick={()=>setReceiveMode('packs')}>
+                📦 Packs ({packSize}{product.unit||''} each)
+              </button>
+              <button type="button" className={'bs-pm'+(receiveMode==='units'?' active':'')} style={{flex:1}}
+                onClick={()=>setReceiveMode('units')}>
+                ⚖️ Raw {product.unit||'units'}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Qty + dates */}
         <div className="bs-frow">
           <div className="bs-fg">
-            <label>Quantity Received *</label>
-            <input type="number" min="1" value={qty} onChange={e=>setQty(e.target.value)} required placeholder="0" />
+            <label>{receiveMode==='packs' && hasPackSize ? 'Packs Received *' : `Quantity Received * (${product?.unit||'units'})`}</label>
+            <input type="number" min="1" step={receiveMode==='packs'?'1':'any'} value={qty} onChange={e=>setQty(e.target.value)} required placeholder="0" />
+            {product && qty>0 && receiveMode==='packs' && hasPackSize && (
+              <p style={{fontSize:'11px',color:'var(--bs-text3, #64748b)',marginTop:'4px'}}>
+                = {totalAddQty} {product.unit||'units'} total ({qty} × {packSize}{product.unit||''})
+              </p>
+            )}
           </div>
           <div className="bs-fg">
             <label>Receive Date</label>
@@ -126,7 +162,7 @@ export default function StockTopup({ products, onTopup, onClose, onAddNew, setti
                 onChange={e=>setNewCost(e.target.value)}
                 placeholder={product ? (product.cost||0).toFixed(2) : '0.00'} />
               {product && newCost && costDiff !== 0 && (
-                <span style={{fontSize:'11px', color: costDiff > 0 ? '#f87171' : '#34d399', marginTop:'3px', display:'block'}}>
+                <span style={{fontSize:'11px', color: costDiff > 0 ? 'var(--bs-danger, #f87171)' : 'var(--bs-success, #34d399)', marginTop:'3px', display:'block'}}>
                   {costDiff > 0 ? '▲' : '▼'} {costDiff > 0 ? '+' : ''}{fmt(costDiff)} vs current
                 </span>
               )}
@@ -137,7 +173,7 @@ export default function StockTopup({ products, onTopup, onClose, onAddNew, setti
                 onChange={e=>setNewPrice(e.target.value)}
                 placeholder={product ? (product.price||0).toFixed(2) : '0.00'} />
               {product && newPrice && priceDiff !== 0 && (
-                <span style={{fontSize:'11px', color: priceDiff > 0 ? '#34d399' : '#f87171', marginTop:'3px', display:'block'}}>
+                <span style={{fontSize:'11px', color: priceDiff > 0 ? 'var(--bs-success, #34d399)' : 'var(--bs-danger, #f87171)', marginTop:'3px', display:'block'}}>
                   {priceDiff > 0 ? '▲' : '▼'} {priceDiff > 0 ? '+' : ''}{fmt(priceDiff)} vs current
                 </span>
               )}
@@ -150,7 +186,7 @@ export default function StockTopup({ products, onTopup, onClose, onAddNew, setti
           <div className="bs-topup-warning">
             <p style={{fontWeight:600, marginBottom:'6px'}}>⚠ Price difference detected</p>
             <p className="bs-muted" style={{fontSize:'12px', lineHeight:'1.6', marginBottom:'10px'}}>
-              The sale price has changed by <strong style={{color: priceDiff > 0 ? '#34d399' : '#f87171'}}>{priceDiff > 0 ? '+' : ''}{fmt(priceDiff)}</strong>.
+              The sale price has changed by <strong style={{color: priceDiff > 0 ? 'var(--bs-success, #34d399)' : 'var(--bs-danger, #f87171)'}}>{priceDiff > 0 ? '+' : ''}{fmt(priceDiff)}</strong>.
               You can either update this product's price, or add it as a new separate product with the new price (so old stock keeps the old price).
             </p>
             <div style={{display:'flex',gap:'8px'}}>

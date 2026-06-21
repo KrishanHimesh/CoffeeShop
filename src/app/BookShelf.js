@@ -29,6 +29,8 @@ import CreditCustomers  from './CreditCustomers';
 import ActivityLog      from './ActivityLog';
 import ReceiveStock     from './ReceiveStock';
 import SalesHistory     from './SalesHistory';
+import KitchenDisplay   from './KitchenDisplay';
+import OrdersReady      from './OrdersReady';
 import InstallPrompt, { useInstallPrompt } from './InstallPrompt';
 import SupportWidget    from './SupportWidget';
 import { applyTheme, getSavedTheme, THEME_LIST } from './themes';
@@ -58,6 +60,8 @@ const TAB_PLAN = {
 const TABS = [
   { id:'dashboard',    label:'📊 Dashboard',    permission:'canViewDashboard'    },
   { id:'pos',          label:'🛒 POS',           permission:'canDoPOS'            },
+  { id:'kitchen',      label:'👨‍🍳 Kitchen',      permission:'canDoPOS'            },
+  { id:'ordersready',  label:'🔔 Orders Ready',  permission:'canDoPOS'            },
   { id:'inventory',    label:'📦 Inventory',     permission:'canManageInventory'  },
   { id:'catalogue',    label:'📋 Catalogue',     permission:'canManageInventory'  },
   { id:'receive',      label:'📥 Receive',       permission:'canManageSuppliers'  },
@@ -88,6 +92,7 @@ export default function BookShelf() {
     products, photos, sales, workers, settings,
     suppliers, stockReceipts,
     creditCustomers, addCreditCustomer, updateCreditCustomer, deleteCreditCustomer,
+    kitchenOrders, updateKitchenOrderStatus,
     activityLog,
     login, logout,
     addProduct, updateProduct, deleteProduct, importSharedProduct,
@@ -189,17 +194,29 @@ export default function BookShelf() {
           <div className="bs-brand">🏪 <strong>{settings?.businessName || 'My Store'}</strong></div>
 
           <nav className="bs-nav bs-nav-desktop">
-            {visibleTabs.map(t => (
-              <button
-                key={t.id}
-                className={'bs-nb' + (tab === t.id ? ' active' : '') + (!planAllows(plan, TAB_PLAN[t.id]) ? ' locked' : '')}
-                onClick={() => switchTab(t.id)}
-                title={!planAllows(plan, TAB_PLAN[t.id]) ? `Requires ${TAB_PLAN[t.id]} plan` : undefined}
-              >
-                {t.label}
-                {!planAllows(plan, TAB_PLAN[t.id]) && <span style={{ fontSize: 10, marginLeft: 4 }}>🔒</span>}
-              </button>
-            ))}
+            {visibleTabs.map(t => {
+              const kitchenBadge     = t.id === 'kitchen'     ? (kitchenOrders||[]).filter(o=>o.status==='new'||o.status==='preparing').length : 0;
+              const ordersReadyBadge = t.id === 'ordersready' ? (kitchenOrders||[]).filter(o=>o.status==='ready').length : 0;
+              const badge = kitchenBadge || ordersReadyBadge;
+              return (
+                <button
+                  key={t.id}
+                  className={'bs-nb' + (tab === t.id ? ' active' : '') + (!planAllows(plan, TAB_PLAN[t.id]) ? ' locked' : '')}
+                  onClick={() => switchTab(t.id)}
+                  title={!planAllows(plan, TAB_PLAN[t.id]) ? `Requires ${TAB_PLAN[t.id]} plan` : undefined}
+                >
+                  {t.label}
+                  {!planAllows(plan, TAB_PLAN[t.id]) && <span style={{ fontSize: 10, marginLeft: 4 }}>🔒</span>}
+                  {badge > 0 && (
+                    <span style={{
+                      marginLeft:6, fontSize:10, fontWeight:700, padding:'1px 6px', borderRadius:100,
+                      background: t.id==='ordersready' ? 'var(--bs-success, #34d399)' : 'var(--bs-danger, #f87171)',
+                      color:'#0d1526',
+                    }}>{badge}</span>
+                  )}
+                </button>
+              );
+            })}
             {isPlatformAdmin && (
               <a href="/admin" style={{ ...adminLinkStyle }}>🛠 Admin</a>
             )}
@@ -250,16 +267,22 @@ export default function BookShelf() {
 
         {menuOpen && (
           <div className="bs-mobile-menu">
-            {visibleTabs.map(t => (
-              <button
-                key={t.id}
-                className={'bs-mobile-menu-item' + (tab === t.id ? ' active' : '')}
-                onClick={() => switchTab(t.id)}
-              >
-                {t.label}
-                {!planAllows(plan, TAB_PLAN[t.id]) && ' 🔒'}
-              </button>
-            ))}
+            {visibleTabs.map(t => {
+              const kitchenBadge     = t.id === 'kitchen'     ? (kitchenOrders||[]).filter(o=>o.status==='new'||o.status==='preparing').length : 0;
+              const ordersReadyBadge = t.id === 'ordersready' ? (kitchenOrders||[]).filter(o=>o.status==='ready').length : 0;
+              const badge = kitchenBadge || ordersReadyBadge;
+              return (
+                <button
+                  key={t.id}
+                  className={'bs-mobile-menu-item' + (tab === t.id ? ' active' : '')}
+                  onClick={() => switchTab(t.id)}
+                >
+                  {t.label}
+                  {!planAllows(plan, TAB_PLAN[t.id]) && ' 🔒'}
+                  {badge > 0 && ` (${badge})`}
+                </button>
+              );
+            })}
             {isPlatformAdmin && (
               <a href="/admin" className="bs-mobile-menu-item" style={{ color: '#c084fc', textDecoration: 'none' }}>
                 🛠 Admin Panel
@@ -298,6 +321,8 @@ export default function BookShelf() {
           {!tabLocked && <>
             {tab === 'dashboard'    && perms.canViewDashboard    && <Dashboard      products={products} sales={sales} workers={workers} profile={profile} settings={settings} categories={categories}/>}
             {tab === 'pos'          && perms.canDoPOS            && <POS            products={products} photos={photos} onSale={handleSale} profile={profile} settings={settings} creditCustomers={creditCustomers} categories={categories}/>}
+            {tab === 'kitchen'      && perms.canDoPOS            && <KitchenDisplay kitchenOrders={kitchenOrders} onUpdateStatus={updateKitchenOrderStatus} settings={settings}/>}
+            {tab === 'ordersready'  && perms.canDoPOS            && <OrdersReady   kitchenOrders={kitchenOrders} onUpdateStatus={updateKitchenOrderStatus}/>}
             {tab === 'inventory'    && perms.canManageInventory  && <Inventory      products={products} photos={photos} onAdd={handleAddProd} onUpdate={handleUpdateProd} onDelete={handleDelProd} canEdit={perms.canAdjustPrices} canDelete={perms.canDeleteInventory} settings={settings} categories={categories}/>}
             {tab === 'catalogue'    && perms.canManageInventory  && <SharedCatalogue industry={settings?.industry || 'general'} existingProducts={products} onImport={handleImport} settings={settings}/>}
             {tab === 'receive'      && perms.canManageSuppliers  && <ReceiveStock   products={products} suppliers={suppliers} onReceive={handleReceive} onAddProduct={handleAddProd} settings={settings} stockReceipts={stockReceipts} categories={categories}/>}

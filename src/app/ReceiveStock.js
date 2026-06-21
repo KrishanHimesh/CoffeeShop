@@ -111,13 +111,18 @@ export default function ReceiveStock({ products, suppliers, onReceive, onAddProd
       for(const it of items){
         if(it.isNew){
           const np=it.newProduct;
-          await onAddProduct({...np,price:+np.price,cost:+np.cost,stock:0,minStock:3,productCode:np.productCode||''});
-          resolvedItems.push({isNew:true,newProductName:np.name,qty:+it.qty,unitCost:+np.cost,newCost:+np.cost,newPrice:+np.price,lineTotal:(+np.cost)*(+it.qty)});
+          // Pack size from the new product's "size" field (e.g. "500" with unit "g") — qty entered is packs received
+          const packSize = parseFloat(np.size) || 0;
+          const stockQty = packSize > 0 ? (+it.qty * packSize) : +it.qty;
+          const newId = await onAddProduct({...np,price:+np.price,cost:+np.cost,stock:stockQty,minStock:3,productCode:np.productCode||''});
+          resolvedItems.push({isNew:true,productId:newId,newProductName:np.name,qty:+it.qty,stockQty:0,unitCost:+np.cost,newCost:+np.cost,newPrice:+np.price,lineTotal:(+np.cost)*(+it.qty)});
         } else {
           const prod=products.find(p=>p.id===it.productId);
           const cost=+(it.newCost||prod?.cost||0);
           const price=+(it.newPrice||prod?.price||0);
-          resolvedItems.push({productId:it.productId,productName:prod?.name||'',productCode:prod?.productCode||'',qty:+it.qty,unitCost:cost,newCost:cost,newPrice:price,lineTotal:cost*(+it.qty)});
+          const packSize = parseFloat(prod?.size) || 0;
+          const stockQty = packSize > 0 ? (+it.qty * packSize) : +it.qty;
+          resolvedItems.push({productId:it.productId,productName:prod?.name||'',productCode:prod?.productCode||'',qty:+it.qty,stockQty,unitCost:cost,newCost:cost,newPrice:price,lineTotal:cost*(+it.qty)});
         }
       }
       await onReceive({supplierId,supplierName:supplier?.name||'',invoiceNo,date:receiveDate,dueDate,notes,items:resolvedItems,totalCost,
@@ -138,7 +143,7 @@ export default function ReceiveStock({ products, suppliers, onReceive, onAddProd
         <div className="bs-fg"><label>Supplier</label><p style={{fontSize:'14px',color:'#f0f4ff'}}>{viewReceipt.supplierName||'—'}</p></div>
         <div className="bs-fg"><label>Invoice No.</label><p style={{fontSize:'14px',color:'#f0f4ff'}}>{viewReceipt.invoiceNo||'—'}</p></div>
         <div className="bs-fg"><label>Received</label><p style={{fontSize:'14px',color:'#f0f4ff'}}>{viewReceipt.date?.slice(0,10)||'—'}</p></div>
-        <div className="bs-fg"><label>Due Date</label><p style={{fontSize:'14px',color:viewReceipt.dueDate?'#fb923c':'#64748b'}}>{viewReceipt.dueDate||'—'}</p></div>
+        <div className="bs-fg"><label>Due Date</label><p style={{fontSize:'14px',color:viewReceipt.dueDate?'var(--bs-warning, #fb923c)':'var(--bs-text3, #64748b)'}}>{viewReceipt.dueDate||'—'}</p></div>
       </div>
       <div className="bs-recv-section-label">Items</div>
       <div className="bs-tbl-wrap">
@@ -166,16 +171,16 @@ export default function ReceiveStock({ products, suppliers, onReceive, onAddProd
           <p className="bs-recv-section-label" style={{padding:'0 0 8px'}}>💳 Payment</p>
           <div style={{display:'flex',gap:'24px',flexWrap:'wrap'}}>
             <div><span className="bs-muted" style={{fontSize:'12px'}}>Status</span>
-              <p style={{fontWeight:700,color:viewReceipt.payment.status==='paid'?'#34d399':viewReceipt.payment.status==='partial'?'#fb923c':'#f87171'}}>
+              <p style={{fontWeight:700,color:viewReceipt.payment.status==='paid'?'var(--bs-success, #34d399)':viewReceipt.payment.status==='partial'?'var(--bs-warning, #fb923c)':'var(--bs-danger, #f87171)'}}>
                 {viewReceipt.payment.status==='paid'?'✅ Paid':viewReceipt.payment.status==='partial'?'🔶 Partial':'⏳ Unpaid'}
               </p></div>
             {viewReceipt.payment.status!=='unpaid'&&<>
-              <div><span className="bs-muted" style={{fontSize:'12px'}}>Paid Amount</span><p style={{fontWeight:700,color:'#34d399'}}>{fmt(viewReceipt.payment.amount)}</p></div>
+              <div><span className="bs-muted" style={{fontSize:'12px'}}>Paid Amount</span><p style={{fontWeight:700,color:'var(--bs-success, #34d399)'}}>{fmt(viewReceipt.payment.amount)}</p></div>
               <div><span className="bs-muted" style={{fontSize:'12px'}}>Method</span><p>{viewReceipt.payment.method}</p></div>
               <div><span className="bs-muted" style={{fontSize:'12px'}}>Payment Date</span><p>{viewReceipt.payment.date}</p></div>
             </>}
-            {viewReceipt.payment.status==='partial'&&<div><span className="bs-muted" style={{fontSize:'12px'}}>Outstanding</span><p style={{fontWeight:700,color:'#f87171'}}>{fmt(viewReceipt.totalCost-viewReceipt.payment.amount)}</p></div>}
-            {viewReceipt.payment.status==='unpaid'&&viewReceipt.dueDate&&<div><span className="bs-muted" style={{fontSize:'12px'}}>Due</span><p style={{color:'#fb923c'}}>{viewReceipt.dueDate}</p></div>}
+            {viewReceipt.payment.status==='partial'&&<div><span className="bs-muted" style={{fontSize:'12px'}}>Outstanding</span><p style={{fontWeight:700,color:'var(--bs-danger, #f87171)'}}>{fmt(viewReceipt.totalCost-viewReceipt.payment.amount)}</p></div>}
+            {viewReceipt.payment.status==='unpaid'&&viewReceipt.dueDate&&<div><span className="bs-muted" style={{fontSize:'12px'}}>Due</span><p style={{color:'var(--bs-warning, #fb923c)'}}>{viewReceipt.dueDate}</p></div>}
           </div>
         </div>
       )}
@@ -202,10 +207,10 @@ export default function ReceiveStock({ products, suppliers, onReceive, onAddProd
                 <td className="bs-isbn">{r.invoiceNo||'—'}</td>
                 <td>{r.items?.length||0} items</td>
                 <td><strong className="bs-green">{fmt(r.totalCost)}</strong></td>
-                <td><span style={{fontSize:'12px',fontWeight:600,color:r.payment?.status==='paid'?'#34d399':r.payment?.status==='partial'?'#fb923c':'#f87171'}}>
+                <td><span style={{fontSize:'12px',fontWeight:600,color:r.payment?.status==='paid'?'var(--bs-success, #34d399)':r.payment?.status==='partial'?'var(--bs-warning, #fb923c)':'var(--bs-danger, #f87171)'}}>
                   {r.payment?.status==='paid'?'✅ Paid':r.payment?.status==='partial'?'🔶 Partial':'⏳ Unpaid'}
                 </span></td>
-                <td style={{color:r.dueDate?'#fb923c':'#64748b',fontSize:'12px'}}>{r.dueDate||'—'}</td>
+                <td style={{color:r.dueDate?'var(--bs-warning, #fb923c)':'var(--bs-text3, #64748b)',fontSize:'12px'}}>{r.dueDate||'—'}</td>
                 <td><button className="bs-act edit" onClick={()=>setViewReceipt(r)}>View</button></td>
               </tr>
             ))}
@@ -221,7 +226,7 @@ export default function ReceiveStock({ products, suppliers, onReceive, onAddProd
       <div style={{fontSize:'48px',marginBottom:'12px'}}>✅</div>
       <h2 style={{marginBottom:'8px'}}>Stock Received!</h2>
       <p className="bs-muted" style={{marginBottom:'4px'}}>Invoice: <strong>{invoiceNo||'—'}</strong> · Supplier: <strong>{supplier?.name||'—'}</strong></p>
-      <p className="bs-muted" style={{marginBottom:'4px'}}>{items.length} items · Total cost: <strong style={{color:'#34d399'}}>{fmt(totalCost)}</strong></p>
+      <p className="bs-muted" style={{marginBottom:'4px'}}>{items.length} items · Total cost: <strong style={{color:'var(--bs-success, #34d399)'}}>{fmt(totalCost)}</strong></p>
       <p className="bs-muted" style={{marginBottom:'20px'}}>Payment: <strong>{payStatus}</strong></p>
       <div style={{display:'flex',gap:'10px',justifyContent:'center'}}>
         <button className="bs-sec" onClick={()=>setView('history')}>View History</button>
@@ -292,8 +297,8 @@ export default function ReceiveStock({ products, suppliers, onReceive, onAddProd
           {/* Barcode scanner camera */}
           {scanning && (
             <div style={{marginBottom:'10px',background:'#0d1526',borderRadius:'8px',overflow:'hidden'}}>
-              <video ref={videoRef} style={{width:'100%',maxHeight:'220px',objectFit:'cover',borderRadius:'8px 8px 0 0',border:'2px solid #38bdf8'}} muted playsInline autoPlay/>
-              <p style={{textAlign:'center',fontSize:'12px',color:'#94a3b8',padding:'6px'}}>
+              <video ref={videoRef} style={{width:'100%',maxHeight:'220px',objectFit:'cover',borderRadius:'8px 8px 0 0',border:'2px solid var(--bs-accent, #38bdf8)'}} muted playsInline autoPlay/>
+              <p style={{textAlign:'center',fontSize:'12px',color:'var(--bs-text3, #94a3b8)',padding:'6px'}}>
                 Point camera at barcode — auto-selects product or pre-fills new ·
                 <button type="button" className="bs-link-btn" onClick={stopScanner} style={{marginLeft:'6px'}}>Cancel</button>
               </p>
@@ -331,16 +336,24 @@ export default function ReceiveStock({ products, suppliers, onReceive, onAddProd
                 </select>
                 {draftProd&&<span className="bs-muted" style={{fontSize:'11px'}}>Current: cost {fmt(draftProd.cost||0)} · sale {fmt(draftProd.price)}</span>}
               </div>
-              <div className="bs-fg"><label>Qty *</label><input type="number" min="1" value={draft.qty||''} onChange={e=>setD('qty',e.target.value)} placeholder="0"/></div>
+              <div className="bs-fg">
+                <label>Qty (packs) *</label>
+                <input type="number" min="1" value={draft.qty||''} onChange={e=>setD('qty',e.target.value)} placeholder="0"/>
+                {draftProd && draft.qty>0 && (() => {
+                  const packSize = parseFloat(draftProd.size) || 0;
+                  if (packSize <= 0) return null;
+                  return <span className="bs-muted" style={{fontSize:'11px',display:'block',marginTop:'3px'}}>= {(+draft.qty*packSize)} {draftProd.unit||'units'} added to stock</span>;
+                })()}
+              </div>
               <div className="bs-fg">
                 <label>New Cost</label>
                 <input type="number" step="0.01" value={draft.newCost||''} onChange={e=>setD('newCost',e.target.value)} placeholder={draftProd?(draftProd.cost||0).toFixed(2):'0.00'}/>
-                {draftCostDiff!==0&&<span style={{fontSize:'10px',color:draftCostDiff>0?'#f87171':'#34d399'}}>{draftCostDiff>0?'▲ +':'▼ '}{fmt(draftCostDiff)}</span>}
+                {draftCostDiff!==0&&<span style={{fontSize:'10px',color:draftCostDiff>0?'var(--bs-danger, #f87171)':'var(--bs-success, #34d399)'}}>{draftCostDiff>0?'▲ +':'▼ '}{fmt(draftCostDiff)}</span>}
               </div>
               <div className="bs-fg">
                 <label>New Sale Price</label>
                 <input type="number" step="0.01" value={draft.newPrice||''} onChange={e=>setD('newPrice',e.target.value)} placeholder={draftProd?(draftProd.price||0).toFixed(2):'0.00'}/>
-                {draftPriceDiff!==0&&<span style={{fontSize:'10px',color:draftPriceDiff>0?'#34d399':'#f87171'}}>{draftPriceDiff>0?'▲ +':'▼ '}{fmt(draftPriceDiff)}</span>}
+                {draftPriceDiff!==0&&<span style={{fontSize:'10px',color:draftPriceDiff>0?'var(--bs-success, #34d399)':'var(--bs-danger, #f87171)'}}>{draftPriceDiff>0?'▲ +':'▼ '}{fmt(draftPriceDiff)}</span>}
               </div>
             </div>
           )}
@@ -360,7 +373,7 @@ export default function ReceiveStock({ products, suppliers, onReceive, onAddProd
                 <tbody>
                   {items.map((it,i)=>(
                     <tr key={i}>
-                      <td><p className="bs-ttl">{it._label}</p>{it.isNew&&<span className="bs-isbn" style={{color:'#38bdf8'}}>NEW</span>}</td>
+                      <td><p className="bs-ttl">{it._label}</p>{it.isNew&&<span className="bs-isbn" style={{color:'var(--bs-accent, #38bdf8)'}}>NEW</span>}</td>
                       <td>{it.qty}</td>
                       <td>{fmt(it._unitCost)}</td>
                       <td>{fmt(it._unitPrice)}</td>
@@ -393,7 +406,7 @@ export default function ReceiveStock({ products, suppliers, onReceive, onAddProd
                   <div className="bs-fg"><label>Payment Date</label><input type="date" value={payDate} onChange={e=>setPayDate(e.target.value)}/></div>
                 </div>
               )}
-              {payStatus==='partial'&&payAmount&&<div className="bs-recv-balance">Outstanding: <strong style={{color:'#fb923c'}}>{fmt(totalCost-+payAmount)}</strong></div>}
+              {payStatus==='partial'&&payAmount&&<div className="bs-recv-balance">Outstanding: <strong style={{color:'var(--bs-warning, #fb923c)'}}>{fmt(totalCost-+payAmount)}</strong></div>}
             </div>
 
             <div className="bs-fa" style={{marginTop:'16px'}}>

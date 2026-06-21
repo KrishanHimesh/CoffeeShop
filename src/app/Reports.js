@@ -54,6 +54,64 @@ export default function Reports({ sales, products, workers, settings }) {
     return { revenue, profit, tax, count, avg, byPayment, byProduct, byWorker };
   }, [filtered]);
 
+  // ── GST breakdown — independent of the range filter above, always shows
+  // current-month-by-day, current-year-by-month, and current-year-by-quarter,
+  // since tax reporting needs these fixed periods regardless of what's being browsed.
+  const gstBreakdown = useMemo(() => {
+    if (!sales || !Array.isArray(sales)) return { byDay: [], byMonth: [], byQuarter: [] };
+    const now = new Date();
+    const thisYear = now.getFullYear();
+    const thisMonthIdx = now.getMonth();
+
+    // By day — every day in the current month that has at least one sale
+    const dayMap = {};
+    sales.forEach(s => {
+      const d = new Date(s.date);
+      if (d.getFullYear() !== thisYear || d.getMonth() !== thisMonthIdx) return;
+      const key = d.toISOString().slice(0,10); // YYYY-MM-DD
+      if (!dayMap[key]) dayMap[key] = { gst: 0, revenue: 0, count: 0 };
+      dayMap[key].gst += s.tax || 0;
+      dayMap[key].revenue += s.total || 0;
+      dayMap[key].count += 1;
+    });
+    const byDay = Object.entries(dayMap)
+      .map(([date, v]) => ({ date, ...v }))
+      .sort((a,b) => b.date.localeCompare(a.date));
+
+    // By month — every month in the current year
+    const monthMap = {};
+    sales.forEach(s => {
+      const d = new Date(s.date);
+      if (d.getFullYear() !== thisYear) return;
+      const key = d.getMonth(); // 0-11
+      if (!monthMap[key]) monthMap[key] = { gst: 0, revenue: 0, count: 0 };
+      monthMap[key].gst += s.tax || 0;
+      monthMap[key].revenue += s.total || 0;
+      monthMap[key].count += 1;
+    });
+    const MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const byMonth = Object.entries(monthMap)
+      .map(([m, v]) => ({ month: MONTH_NAMES[+m], monthIdx: +m, ...v }))
+      .sort((a,b) => b.monthIdx - a.monthIdx);
+
+    // By quarter — Q1-Q4 of the current year
+    const quarterMap = {};
+    sales.forEach(s => {
+      const d = new Date(s.date);
+      if (d.getFullYear() !== thisYear) return;
+      const q = Math.floor(d.getMonth() / 3) + 1; // 1-4
+      if (!quarterMap[q]) quarterMap[q] = { gst: 0, revenue: 0, count: 0 };
+      quarterMap[q].gst += s.tax || 0;
+      quarterMap[q].revenue += s.total || 0;
+      quarterMap[q].count += 1;
+    });
+    const byQuarter = Object.entries(quarterMap)
+      .map(([q, v]) => ({ quarter: `Q${q} ${thisYear}`, quarterNum: +q, ...v }))
+      .sort((a,b) => b.quarterNum - a.quarterNum);
+
+    return { byDay, byMonth, byQuarter };
+  }, [sales]);
+
   const topProducts = Object.entries(totals.byProduct).sort((a,b)=>b[1].rev-a[1].rev).slice(0,10);
   const allWorkers  = [...new Set(sales.map(s=>s.workerName).filter(Boolean))];
 
@@ -225,7 +283,7 @@ export default function Reports({ sales, products, workers, settings }) {
             {allWorkers.map(w=><option key={w} value={w}>{w}</option>)}
           </select>
           <button className="bs-add" onClick={exportCSV}>⬇ Export CSV</button>
-          <button className="bs-add" style={{background:'#dc2626'}} onClick={exportPDF}>📄 Export PDF</button>
+          <button className="bs-add" style={{background:'var(--bs-danger, #dc2626)'}} onClick={exportPDF}>📄 Export PDF</button>
         </div>
       </div>
 
@@ -238,6 +296,9 @@ export default function Reports({ sales, products, workers, settings }) {
         <div className="bs-sc sc-o"><span className="bs-sc-icon">📊</span><div><p className="bs-sc-val">{fmt(totals.avg)}</p><p className="bs-sc-lbl">Avg Sale</p></div></div>
         <div className="bs-sc sc-r"><span className="bs-sc-icon">📈</span><div><p className="bs-sc-val">{totals.revenue>0?(totals.profit/totals.revenue*100).toFixed(0):0}%</p><p className="bs-sc-lbl">Margin</p></div></div>
       </div>
+
+      {/* GST breakdown — Day / Month / Quarter, always for the current period */}
+      <GstBreakdownSection gstBreakdown={gstBreakdown} fmt={fmt} gstLabel={gstLabel} />
 
       <div className="bs-dash3">
         {/* Top products */}
@@ -266,7 +327,7 @@ export default function Reports({ sales, products, workers, settings }) {
             <div key={method} className="bs-cat-row">
               <span>{method}</span>
               <div className="bs-cat-bar-wrap">
-                <div className="bs-cat-bar" style={{width:`${(amt/Math.max(totals.revenue,1)*100)}%`,background:'#38bdf8'}}/>
+                <div className="bs-cat-bar" style={{width:`${(amt/Math.max(totals.revenue,1)*100)}%`,background:'var(--bs-accent, #38bdf8)'}}/>
               </div>
               <span className="bs-cat-val">{fmt(amt)}</span>
             </div>
@@ -323,3 +384,71 @@ export default function Reports({ sales, products, workers, settings }) {
     </div>
   );
 }
+
+// ── GST Breakdown — Day / Month / Quarter tabs, always reflecting the current
+// year (and current month for the daily view) so tax filing periods are easy to find.
+function GstBreakdownSection({ gstBreakdown, fmt, gstLabel }) {
+  const [view, setView] = useState('day');
+  const rows = view==='day' ? gstBreakdown.byDay : view==='month' ? gstBreakdown.byMonth : gstBreakdown.byQuarter;
+  const totalGst = rows.reduce((s,r)=>s+r.gst, 0);
+
+  const formatDate = iso => {
+    const d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString('en-AU', { weekday:'short', day:'numeric', month:'short' });
+  };
+
+  return (
+    <div className="bs-dcard" style={{marginBottom:'20px'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:'10px',marginBottom:'10px'}}>
+        <p className="bs-dcard-ttl" style={{margin:0}}>🧾 {gstLabel} Breakdown</p>
+        <div style={{display:'flex',gap:'6px'}}>
+          {[{id:'day',label:'By Day'},{id:'month',label:'By Month'},{id:'quarter',label:'By Quarter'}].map(t=>(
+            <button key={t.id}
+              className={'bs-pm'+(view===t.id?' active':'')}
+              style={{padding:'6px 14px',fontSize:'12px'}}
+              onClick={()=>setView(t.id)}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <p className="bs-muted" style={{fontSize:'12px',marginBottom:'10px'}}>
+        {view==='day' && 'Current month, by day'}
+        {view==='month' && 'Current year, by month'}
+        {view==='quarter' && 'Current year, by quarter'}
+        {' · '}Total: <strong style={{color:'var(--bs-text, #e2e8f0)'}}>{fmt(totalGst)}</strong>
+      </p>
+
+      {rows.length === 0 && (
+        <p className="bs-muted" style={{padding:'24px',textAlign:'center'}}>No sales in this period yet.</p>
+      )}
+
+      {rows.length > 0 && (
+        <div style={{overflowX:'auto'}}>
+          <table className="bs-table" style={{width:'100%'}}>
+            <thead>
+              <tr>
+                <th>{view==='day' ? 'Date' : view==='month' ? 'Month' : 'Quarter'}</th>
+                <th>Transactions</th>
+                <th>Revenue</th>
+                <th>{gstLabel}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r,i) => (
+                <tr key={i}>
+                  <td>{view==='day' ? formatDate(r.date) : view==='month' ? r.month : r.quarter}</td>
+                  <td className="bs-muted">{r.count}</td>
+                  <td>{fmt(r.revenue)}</td>
+                  <td><strong style={{color:'var(--bs-accent, #38bdf8)'}}>{fmt(r.gst)}</strong></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
