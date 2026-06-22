@@ -307,6 +307,8 @@
 .bs-role-badge.owner   { background:rgba(251,191,36,.1); color:var(--bs-warning); border:1px solid rgba(251,191,36,.3); }
 .bs-role-badge.manager { background:rgba(129,140,248,.1); color:#818cf8; border:1px solid rgba(129,140,248,.3); }
 .bs-role-badge.cashier { background:rgba(56,189,248,.1); color:var(--bs-accent); border:1px solid rgba(56,189,248,.3); }
+.bs-role-badge.kitchen { background:rgba(251,146,60,.1); color:#fb923c; border:1px solid rgba(251,146,60,.3); }
+.bs-role-badge.orders  { background:rgba(52,211,153,.1); color:#34d399; border:1px solid rgba(52,211,153,.3); }
 .bs-wc-pw { display:flex; align-items:center; justify-content:center; gap:8px; }
 .bs-pw-toggle { background:none; border:none; cursor:pointer; font-size:0.9333em; }
 .bs-wc-actions { display:flex; justify-content:center; gap:8px; }

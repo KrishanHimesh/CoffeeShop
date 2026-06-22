@@ -60,8 +60,8 @@ const TAB_PLAN = {
 const TABS = [
   { id:'dashboard',    label:'📊 Dashboard',    permission:'canViewDashboard'    },
   { id:'pos',          label:'🛒 POS',           permission:'canDoPOS'            },
-  { id:'kitchen',      label:'👨‍🍳 Kitchen',      permission:'canDoPOS'            },
-  { id:'ordersready',  label:'🔔 Orders Ready',  permission:'canDoPOS'            },
+  { id:'kitchen',      label:'👨‍🍳 Kitchen',      permission:'canAccessKitchen'    },
+  { id:'ordersready',  label:'🔔 Orders Ready',  permission:'canAccessOrdersReady'},
   { id:'inventory',    label:'📦 Inventory',     permission:'canManageInventory'  },
   { id:'catalogue',    label:'📋 Catalogue',     permission:'canManageInventory'  },
   { id:'receive',      label:'📥 Receive',       permission:'canManageSuppliers'  },
@@ -321,8 +321,8 @@ export default function BookShelf() {
           {!tabLocked && <>
             {tab === 'dashboard'    && perms.canViewDashboard    && <Dashboard      products={products} sales={sales} workers={workers} profile={profile} settings={settings} categories={categories}/>}
             {tab === 'pos'          && perms.canDoPOS            && <POS            products={products} photos={photos} onSale={handleSale} profile={profile} settings={settings} creditCustomers={creditCustomers} categories={categories}/>}
-            {tab === 'kitchen'      && perms.canDoPOS            && <KitchenDisplay kitchenOrders={kitchenOrders} onUpdateStatus={updateKitchenOrderStatus} settings={settings}/>}
-            {tab === 'ordersready'  && perms.canDoPOS            && <OrdersReady   kitchenOrders={kitchenOrders} onUpdateStatus={updateKitchenOrderStatus}/>}
+            {tab === 'kitchen'      && perms.canAccessKitchen    && <KitchenDisplay kitchenOrders={kitchenOrders} onUpdateStatus={updateKitchenOrderStatus} settings={settings}/>}
+            {tab === 'ordersready'  && perms.canAccessOrdersReady&& <OrdersReady   kitchenOrders={kitchenOrders} onUpdateStatus={updateKitchenOrderStatus}/>}
             {tab === 'inventory'    && perms.canManageInventory  && <Inventory      products={products} photos={photos} onAdd={handleAddProd} onUpdate={handleUpdateProd} onDelete={handleDelProd} canEdit={perms.canAdjustPrices} canDelete={perms.canDeleteInventory} settings={settings} categories={categories}/>}
             {tab === 'catalogue'    && perms.canManageInventory  && <SharedCatalogue industry={settings?.industry || 'general'} existingProducts={products} onImport={handleImport} settings={settings}/>}
             {tab === 'receive'      && perms.canManageSuppliers  && <ReceiveStock   products={products} suppliers={suppliers} onReceive={handleReceive} onAddProduct={handleAddProd} settings={settings} stockReceipts={stockReceipts} categories={categories}/>}

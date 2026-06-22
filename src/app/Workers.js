@@ -475,6 +475,8 @@ function WorkerForm({ worker, onSave, onClose, creating, error }) {
           {f.role === ROLES.OWNER   && <p>👑 <strong>Owner:</strong> Full access including workers and reports.</p>}
           {f.role === ROLES.MANAGER && <p>🔧 <strong>Manager:</strong> Inventory + reports. Cannot manage workers.</p>}
           {f.role === ROLES.CASHIER && <p>🛒 <strong>Cashier:</strong> POS only. No reports or inventory changes.</p>}
+          {f.role === ROLES.KITCHEN && <p>👨‍🍳 <strong>Kitchen Staff:</strong> Kitchen Display, Orders Ready, Inventory, and Appearance. No POS, reports, or worker access.</p>}
+          {f.role === ROLES.ORDERS  && <p>🔔 <strong>Orders Ready:</strong> Orders Ready screen only — marks finished orders as picked up.</p>}
         </div>
         {error && (
           <div style={{ background:'#450a0a', color:'#fca5a5', padding:'10px 12px', borderRadius:8, fontSize:13, marginBottom:8 }}>

@@ -791,7 +791,8 @@ export function useStore() {
         receiptId,
         items: kitchenItems,
         orderType: saleData.orderType || 'Takeaway',
-        status: 'new', // new -> preparing -> ready -> completed
+        customerName: saleData.customerName || null,
+        status: 'new',
         workerName: profile?.name || 'Unknown',
         createdAt: serverTimestamp(),
         date: new Date().toISOString(),

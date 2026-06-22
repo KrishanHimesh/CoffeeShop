@@ -1,13 +1,17 @@
 export const ROLES = {
-  OWNER:   'owner',
-  MANAGER: 'manager',
-  CASHIER: 'cashier',
+  OWNER:    'owner',
+  MANAGER:  'manager',
+  CASHIER:  'cashier',
+  KITCHEN:  'kitchen',
+  ORDERS:   'orders',
 };
 
 export const ROLE_LABELS = {
   owner:   '👑 Owner',
   manager: '🔧 Manager',
   cashier: '🛒 Cashier',
+  kitchen: '👨‍🍳 Kitchen Staff',
+  orders:  '🔔 Orders Ready',
 };
 
 export const ROLE_PERMISSIONS = {
@@ -23,6 +27,8 @@ export const ROLE_PERMISSIONS = {
     canDoPOS:          true,
     canManageSuppliers:true,
     canChangeAppearance:true,
+    canAccessKitchen:  true,
+    canAccessOrdersReady:true,
   },
   manager: {
     canViewDashboard:  true,
@@ -36,6 +42,8 @@ export const ROLE_PERMISSIONS = {
     canDoPOS:          true,
     canManageSuppliers:true,
     canChangeAppearance:true,
+    canAccessKitchen:  true,
+    canAccessOrdersReady:true,
   },
   cashier: {
     canViewDashboard:  false,
@@ -48,6 +56,38 @@ export const ROLE_PERMISSIONS = {
     canDoPOS:          true,
     canManageSuppliers:false,
     canChangeAppearance:true,
+    canAccessKitchen:  false,
+    canAccessOrdersReady:false,
+  },
+  kitchen: {
+    canViewDashboard:  false,
+    canManageWorkers:  false,
+    canManageInventory:true,
+    canViewReports:    false,
+    canDeleteSales:    false,
+    canDeleteInventory:false,
+    canAdjustPrices:   false,
+    canViewAllSales:   false,
+    canDoPOS:          false,
+    canManageSuppliers:false,
+    canChangeAppearance:true,
+    canAccessKitchen:  true,
+    canAccessOrdersReady:true,
+  },
+  orders: {
+    canViewDashboard:  false,
+    canManageWorkers:  false,
+    canManageInventory:false,
+    canViewReports:    false,
+    canDeleteSales:    false,
+    canDeleteInventory:false,
+    canAdjustPrices:   false,
+    canViewAllSales:   false,
+    canDoPOS:          false,
+    canManageSuppliers:false,
+    canChangeAppearance:false,
+    canAccessKitchen:  false,
+    canAccessOrdersReady:true,
   },
 };
 

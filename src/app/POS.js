@@ -46,6 +46,7 @@ export default function POS({ products, onSale, profile, settings, creditCustome
   const [payment,      setPayment]     = useState('Cash');
   const [disc,         setDisc]        = useState(0);
   const [note,         setNote]        = useState('');
+  const [customerName, setCustomerName]= useState('');
   const [receipt,      setReceipt]     = useState(null);
   const [busy,         setBusy]        = useState(false);
   const [scanning,     setScanning]    = useState(false);
@@ -280,6 +281,8 @@ export default function POS({ products, onSale, profile, settings, creditCustome
     if (!cart.length || busy) return;
     setBusy(true);
     const isCredit = payment === 'Credit' && creditCustId;
+    const resolvedCustomerName = customerName.trim()
+      || (isCredit ? (creditCustomers?.find(c=>c.id===creditCustId)?.name||'') : '');
     const saleData = {
       items: cart.map(i=>({
         id: i.baseProductId || i.id, name:i.name, category:i.category, qty:i.qty,
@@ -287,6 +290,7 @@ export default function POS({ products, onSale, profile, settings, creditCustome
         ...(i.modifiers && i.modifiers.length ? { modifiers: i.modifiers } : {}),
       })),
       subtotal, discount:discAmt, tax, total, profit, payment, orderType,
+      customerName: resolvedCustomerName || null,
       note: note + (isCredit ? ` [Credit: ${creditCustomers?.find(c=>c.id===creditCustId)?.name}]` : ''),
       creditCustomerId: isCredit ? creditCustId : null,
       creditCustomerName: isCredit ? (creditCustomers?.find(c=>c.id===creditCustId)?.name||'') : null,
@@ -295,13 +299,14 @@ export default function POS({ products, onSale, profile, settings, creditCustome
     const creditCust = isCredit ? creditCustomers?.find(c=>c.id===creditCustId) : null;
     setReceipt({
       ...saleData, id: receiptId||('S'+Date.now()), date: new Date().toISOString(),
-      workerName: profile?.name, businessName: settings?.businessName||'Unity Book Shop',
-      receiptFooter: settings?.receiptFooter||'Thank you for shopping with us!',
+      workerName: profile?.name, businessName: settings?.businessName||'The Four Beans',
+      receiptFooter: settings?.receiptFooter||'Thank you, see you again soon!',
       receiptFooter2: settings?.receiptFooter2||'',
       gstEnabled, gstRate: settings?.gstRate??10, sym,
+      customerName: resolvedCustomerName || null,
       creditCustomerName: creditCust?.name,
     });
-    setCart([]); setDisc(0); setNote(''); setCreditCustId(''); setBusy(false); setOrderType('Takeaway');
+    setCart([]); setDisc(0); setNote(''); setCustomerName(''); setCreditCustId(''); setBusy(false); setOrderType('Takeaway');
   };
 
   if (receipt) return <ReceiptView receipt={receipt} fmt={fmt} onNew={()=>setReceipt(null)} />;
@@ -447,8 +452,14 @@ export default function POS({ products, onSale, profile, settings, creditCustome
             )}
 
             <div className="bs-cart-extras">
+              <div className="bs-extra-row">
+                <label style={{fontWeight:600,color:'var(--bs-accent, #38bdf8)'}}>👤 Customer Name</label>
+                <input type="text" value={customerName} onChange={e=>setCustomerName(e.target.value)}
+                  placeholder="Enter name for order pickup…" className="bs-inp-sm"
+                  style={{fontSize:'15px',fontWeight:600}}/>
+              </div>
               <div className="bs-extra-row"><label>Discount %</label><input type="number" min="0" max="100" value={disc} onChange={e=>setDisc(+e.target.value)} className="bs-small-inp"/></div>
-              <div className="bs-extra-row"><label>Note</label><input type="text" value={note} onChange={e=>setNote(e.target.value)} placeholder="Customer name / ref…" className="bs-inp-sm"/></div>
+              <div className="bs-extra-row"><label>Note</label><input type="text" value={note} onChange={e=>setNote(e.target.value)} placeholder="Optional note…" className="bs-inp-sm"/></div>
             </div>
 
             <div className="bs-summary">
@@ -484,7 +495,7 @@ export default function POS({ products, onSale, profile, settings, creditCustome
               disabled={busy||(payment==='Credit'&&!creditCustId)}>
               {busy?'Processing…':'✅ Complete Sale · '+fmt(total)}
             </button>
-            <button className="bs-clear" onClick={()=>{setCart([]);setDisc(0);setNote('');setCreditCustId('');setOrderType('Takeaway');}}>Clear Bill</button>
+            <button className="bs-clear" onClick={()=>{setCart([]);setDisc(0);setNote('');setCustomerName('');setCreditCustId('');setOrderType('Takeaway');}}>Clear Bill</button>
           </>
         )}
       </div>
@@ -563,7 +574,7 @@ td:nth-child(2),th:nth-child(2){text-align:center}
 <p class="c m">Receipt #${receipt.id}</p>
 <p class="c m">${new Date(receipt.date).toLocaleString()}</p>
 <p class="c m">Cashier: ${receipt.workerName||''}</p>
-${receipt.creditCustomerName?`<p class="c m">Customer: ${receipt.creditCustomerName}</p>`:''}
+${receipt.customerName?`<p class="c m"><strong>Customer: ${receipt.customerName}</strong></p>`:receipt.creditCustomerName?`<p class="c m">Customer: ${receipt.creditCustomerName}</p>`:''}
 <hr><table><thead><tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead><tbody>
 ${receipt.items.map(it=>`<tr><td>${it.name}${it.isMisc?' (misc)':''}</td><td style="text-align:center">${it.qty}</td><td style="text-align:right">${receipt.sym} ${it.price.toFixed(2)}</td><td style="text-align:right">${receipt.sym} ${(it.price*it.qty).toFixed(2)}</td></tr>`).join('')}
 </tbody></table><hr><table>
@@ -588,7 +599,7 @@ ${receipt.gstEnabled?`<tr><td style="color:#888;font-size:10px">— incl. GST ($
           <p className="bs-muted">{new Date(receipt.date).toLocaleString()}</p>
           <p className="bs-muted">Cashier: <strong>{receipt.workerName}</strong></p>
           {receipt.orderType&&<p className="bs-muted">Order: <strong>{receipt.orderType}</strong></p>}
-          {receipt.creditCustomerName&&<p className="bs-muted">Customer: <strong style={{color:'#38bdf8'}}>{receipt.creditCustomerName}</strong></p>}
+          {(receipt.customerName||receipt.creditCustomerName)&&<p className="bs-muted">Customer: <strong style={{color:'var(--bs-accent, #38bdf8)'}}>{receipt.customerName||receipt.creditCustomerName}</strong></p>}
         </div>
         <hr className="bs-rhr"/>
         <table className="bs-rec-tbl">
