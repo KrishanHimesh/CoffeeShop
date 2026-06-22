@@ -70,7 +70,7 @@ const TABS = [
   { id:'customers',    label:'🤝 Customers',     permission:'canViewReports'      },
   { id:'saleshistory', label:'🧾 Receipts',      permission:'canViewReports'      },
   { id:'reports',      label:'📈 Reports',       permission:'canViewReports'      },
-  { id:'workers',      label:'👥 Workers',       permission:'canManageWorkers'    },
+  { id:'workers',      label:'👥 Workers',       permission:'canAccessWorkers'    },
   { id:'settings',     label:'⚙️ Settings',      permission:'canManageWorkers'    },
   { id:'activitylog',  label:'🔍 Activity Log',  permission:'canManageWorkers'    },
   { id:'appearance',   label:'🎨 Appearance',    permission:'canChangeAppearance' },
@@ -97,7 +97,7 @@ export default function BookShelf() {
     login, logout,
     addProduct, updateProduct, deleteProduct, importSharedProduct,
     recordSale,
-    addWorker, updateWorker, deleteWorker,
+    addWorker, updateWorker, deleteWorker, changeOwnPassword,
     saveSettings,
     addSupplier, updateSupplier, deleteSupplier,
     receiveStock,
@@ -191,7 +191,12 @@ export default function BookShelf() {
       <div className="bs">
         <header className="bs-hdr">
           
-          <div className="bs-brand">🏪 <strong>{settings?.businessName || 'My Store'}</strong></div>
+          <div className="bs-brand">
+            {settings?.logoUrl
+              ? <img src={settings.logoUrl} alt={settings?.businessName||'Logo'} style={{height:'32px',maxWidth:'120px',objectFit:'contain',borderRadius:'6px'}}/>
+              : <><span>🏪</span> <strong>{settings?.businessName || 'My Store'}</strong></>
+            }
+          </div>
 
           <nav className="bs-nav bs-nav-desktop">
             {visibleTabs.map(t => {
@@ -330,7 +335,7 @@ export default function BookShelf() {
             {tab === 'suppliers'    && perms.canManageSuppliers  && <Suppliers      suppliers={suppliers} onAdd={handleAddSupplier} onUpdate={handleUpdSupplier} onDelete={handleDelSupplier}/>}
             {tab === 'reports'      && perms.canViewReports      && <Reports        sales={sales} products={products} workers={workers} settings={settings}/>}
             {tab === 'saleshistory' && perms.canViewReports      && <SalesHistory   sales={sales} products={products} settings={settings} profile={profile}/>}
-            {tab === 'workers'      && perms.canManageWorkers    && <Workers        workers={workers} onAdd={handleAddWorker} onUpdate={handleUpdWorker} onDelete={handleDelWorker} profile={profile} tenantId={tenantId}/>}
+            {tab === 'workers'      && perms.canAccessWorkers    && <Workers        workers={workers} onAdd={handleAddWorker} onUpdate={handleUpdWorker} onDelete={handleDelWorker} profile={profile} tenantId={tenantId}/>}
             {tab === 'settings'     && perms.canManageWorkers    && <Settings       settings={settings} onSave={handleSettings} profile={profile} onUpdateProfile={handleUpdWorker} workers={workers} onUpdateWorker={handleUpdWorker}/>}
             {tab === 'activitylog'  && perms.canManageWorkers    && <ActivityLog    activityLog={activityLog}/>}
             {tab === 'customers'    && perms.canViewReports      && <CreditCustomers customers={creditCustomers} sales={sales} onAdd={handleAddCust} onUpdate={handleUpdCust} onDelete={handleDelCust} settings={settings}/>}

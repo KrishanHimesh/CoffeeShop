@@ -17,11 +17,27 @@ import {
 } from 'firebase/firestore';
 import {
   signInWithEmailAndPassword, signOut, onAuthStateChanged,
-  createUserWithEmailAndPassword,
+  createUserWithEmailAndPassword, updatePassword,
+  EmailAuthProvider, reauthenticateWithCredential,
+  getAuth,
 } from 'firebase/auth';
+import { initializeApp, getApps } from 'firebase/app';
 // Storage is not used — photos are stored as base64 directly in Firestore
 // This works without Firebase Storage being enabled in your region.
 import { db, auth } from './firebase';
+
+// ── Secondary Firebase app — used only for createUserWithEmailAndPassword so
+// that creating a worker account doesn't sign out the currently logged-in owner.
+// We reuse the same config as the main app, just under a different app name.
+let _secondaryAuth = null;
+const getSecondaryAuth = () => {
+  if (_secondaryAuth) return _secondaryAuth;
+  const existingApps = getApps();
+  const secondary = existingApps.find(a => a.name === 'secondary') ||
+    initializeApp(auth.app.options, 'secondary');
+  _secondaryAuth = getAuth(secondary);
+  return _secondaryAuth;
+};
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
 const lsLoad = (k, d) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } };
@@ -862,23 +878,30 @@ export function useStore() {
   const addWorker = useCallback(async (data) => {
     if (!tenantId) throw new Error('Not authenticated');
     try {
-      // Note: createUserWithEmailAndPassword signs in the new user, which
-      // briefly changes auth.currentUser. For production, use the Admin SDK
-      // via a Cloud Function instead to avoid this side-effect.
-      const cred = await createUserWithEmailAndPassword(auth, data.email, data.password);
+      // Use a secondary Firebase app instance so creating a worker account
+      // does NOT sign out the currently logged-in owner.
+      const secondaryAuth = getSecondaryAuth();
+      const cred = await createUserWithEmailAndPassword(secondaryAuth, data.email, data.password);
+      const workerUid = cred.user.uid;
+      // Sign out of the secondary app immediately — we only needed it for account creation.
+      await signOut(secondaryAuth);
+
       trackUsage('write', 'workers');
-      await setDoc(tenantDoc(tenantId, 'workers', cred.user.uid), {
+      // Write the worker's Firestore record
+      await setDoc(tenantDoc(tenantId, 'workers', workerUid), {
+        uid: workerUid,
         name: data.name, email: data.email, role: data.role,
         phone: data.phone || '', tenantId, createdAt: serverTimestamp(),
       });
-    } catch (err) {
-      // Fallback — store worker record without Firebase Auth account
-      console.error('[addWorker]', err.message);
-      await addDoc(tenantCol(tenantId, 'workers'), {
-        ...data, tenantId, createdAt: serverTimestamp(),
+      // Write userTenants so when they log in, useStore can resolve their tenantId
+      await setDoc(doc(db, 'userTenants', workerUid), {
+        tenantId, role: data.role, plan: plan || 'trial', updatedAt: serverTimestamp(),
       });
+    } catch (err) {
+      console.error('[addWorker]', err.message);
+      throw new Error(err.message);
     }
-  }, [tenantId]);
+  }, [tenantId, plan]);
 
   const updateWorker = useCallback(async (id, data) => {
     if (!tenantId) throw new Error('Not authenticated');
@@ -890,6 +913,16 @@ export function useStore() {
       lsSave('bs2_session', refreshed); setProfile(refreshed);
     }
   }, [tenantId, profile]);
+
+  // Change current user's own password — requires knowing the current password
+  // for re-authentication (Firebase security requirement).
+  const changeOwnPassword = useCallback(async (currentPassword, newPassword) => {
+    const user = auth.currentUser;
+    if (!user || !user.email) throw new Error('Not signed in');
+    const credential = EmailAuthProvider.credential(user.email, currentPassword);
+    await reauthenticateWithCredential(user, credential);
+    await updatePassword(user, newPassword);
+  }, []);
 
   const deleteWorker = useCallback(async (id) => {
     if (!tenantId) throw new Error('Not authenticated');
@@ -997,7 +1030,7 @@ export function useStore() {
     login, logout, refreshClaims,
     addProduct, updateProduct, deleteProduct, importSharedProduct,
     recordSale,
-    addWorker, updateWorker, deleteWorker,
+    addWorker, updateWorker, deleteWorker, changeOwnPassword,
     saveSettings,
     suppliers, addSupplier, updateSupplier, deleteSupplier,
     stockReceipts, receiveStock,

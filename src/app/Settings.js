@@ -103,9 +103,9 @@ export default function Settings({ settings, onSave, profile, onUpdateProfile, w
           <button key={t.id} type="button" onClick={() => setSettingsTab(t.id)}
             style={{
               padding:'8px 16px', background:'none', border:'none',
-              color: settingsTab===t.id ? '#38bdf8' : '#64748b',
+              color: settingsTab===t.id ? 'var(--bs-accent, #38bdf8)' : 'var(--bs-text3, #64748b)',
               cursor:'pointer', fontSize:14,
-              borderBottom: settingsTab===t.id ? '2px solid #38bdf8' : '2px solid transparent',
+              borderBottom: settingsTab===t.id ? '2px solid var(--bs-accent, #38bdf8)' : '2px solid transparent',
             }}>
             {t.label}
           </button>
@@ -133,15 +133,15 @@ export default function Settings({ settings, onSave, profile, onUpdateProfile, w
                       placeholder="+61 4xx xxx xxx" style={inp}/>
                   </div>
                   <div>
-                    <label style={lbl}>Email <span style={{ color:'#475569', fontWeight:400 }}>(cannot be changed here)</span></label>
+                    <label style={lbl}>Email <span style={{ color:'var(--bs-text3, #475569)', fontWeight:400 }}>(cannot be changed here)</span></label>
                     <input value={profForm.email} disabled style={{ ...inp, opacity:0.5, cursor:'not-allowed' }}/>
                   </div>
                   <div>
-                    <label style={lbl}>Role <span style={{ color:'#475569', fontWeight:400 }}>(set by owner)</span></label>
+                    <label style={lbl}>Role <span style={{ color:'var(--bs-text3, #475569)', fontWeight:400 }}>(set by owner)</span></label>
                     <input value={profForm.role} disabled style={{ ...inp, opacity:0.5, cursor:'not-allowed', textTransform:'capitalize' }}/>
                   </div>
                 </div>
-                {profErr && <p style={{ color:'#f87171', fontSize:13, marginTop:10 }}>⚠ {profErr}</p>}
+                {profErr && <p style={{ color:'var(--bs-danger, #f87171)', fontSize:13, marginTop:10 }}>⚠ {profErr}</p>}
                 <div style={{ display:'flex', alignItems:'center', gap:12, marginTop:16 }}>
                   <button type="submit" className="bs-pri" style={{ padding:'10px 24px' }}>
                     Save Profile
@@ -163,11 +163,11 @@ export default function Settings({ settings, onSave, profile, onUpdateProfile, w
 
           {editWorker ? (
             <form onSubmit={handleWorkerSave}>
-              <div style={{ background:'#0d1526', border:'1px solid #1e293b', borderRadius:12, padding:20 }}>
+              <div style={{ background:'var(--bs-bg, #0d1526)', border:'1px solid var(--bs-border, #1e293b)', borderRadius:12, padding:20 }}>
                 <div style={{ display:'flex', justifyContent:'space-between', marginBottom:16 }}>
-                  <h3 style={{ margin:0, color:'#f1f5f9' }}>Edit — {editWorker.name}</h3>
+                  <h3 style={{ margin:0, color:'var(--bs-text, #f1f5f9)' }}>Edit — {editWorker.name}</h3>
                   <button type="button" onClick={() => setEditWorker(null)}
-                    style={{ background:'none', border:'none', color:'#64748b', cursor:'pointer', fontSize:18 }}>✕</button>
+                    style={{ background:'none', border:'none', color:'var(--bs-text3, #64748b)', cursor:'pointer', fontSize:18 }}>✕</button>
                 </div>
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'14px 20px' }}>
                   {[
@@ -204,15 +204,15 @@ export default function Settings({ settings, onSave, profile, onUpdateProfile, w
           ) : (
             <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
               {(workers||[]).map(w => (
-                <div key={w.id} style={{ background:'#0d1526', border:'1px solid #1e293b', borderRadius:10, padding:'14px 18px', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:10 }}>
+                <div key={w.id} style={{ background:'var(--bs-bg, #0d1526)', border:'1px solid var(--bs-border, #1e293b)', borderRadius:10, padding:'14px 18px', display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:10 }}>
                   <div>
-                    <p style={{ margin:0, fontWeight:600, color:'#f1f5f9', fontSize:14 }}>{w.name}</p>
-                    <p style={{ margin:'3px 0 0', fontSize:12, color:'#64748b' }}>{w.email} · {w.phone||'No phone'}</p>
+                    <p style={{ margin:0, fontWeight:600, color:'var(--bs-text, #f1f5f9)', fontSize:14 }}>{w.name}</p>
+                    <p style={{ margin:'3px 0 0', fontSize:12, color:'var(--bs-text3, #64748b)' }}>{w.email} · {w.phone||'No phone'}</p>
                     <span style={{
                       display:'inline-block', marginTop:4, fontSize:11, fontWeight:600,
                       padding:'1px 8px', borderRadius:8,
                       background: w.role==='owner'?'rgba(192,132,252,.15)':w.role==='manager'?'rgba(56,189,248,.12)':'rgba(74,222,128,.1)',
-                      color: w.role==='owner'?'#c084fc':w.role==='manager'?'#38bdf8':'#4ade80',
+                      color: w.role==='owner'?'#c084fc':w.role==='manager'?'var(--bs-accent, #38bdf8)':'#4ade80',
                     }}>
                       {w.role==='owner'?'👑 Owner':w.role==='manager'?'🔧 Manager':'🛒 Cashier'}
                     </span>
@@ -224,7 +224,7 @@ export default function Settings({ settings, onSave, profile, onUpdateProfile, w
                 </div>
               ))}
               {(!workers||workers.length===0) && (
-                <p style={{ color:'#475569', fontSize:13 }}>No workers yet. Add workers in the Workers tab.</p>
+                <p style={{ color:'var(--bs-text3, #475569)', fontSize:13 }}>No workers yet. Add workers in the Workers tab.</p>
               )}
             </div>
           )}
@@ -242,30 +242,71 @@ export default function Settings({ settings, onSave, profile, onUpdateProfile, w
           {/* Business Info */}
           <div className="bs-settings-card">
             <p className="bs-dcard-ttl">🏪 Business Information</p>
+
+            {/* Logo upload */}
+            <div className="bs-fg" style={{marginBottom:'16px'}}>
+              <label>Store Logo <span style={{fontSize:'11px',color:'var(--bs-text3, #64748b)',fontWeight:400}}>(shown in nav instead of business name)</span></label>
+              <div style={{display:'flex',alignItems:'center',gap:'12px',flexWrap:'wrap'}}>
+                {form.logoUrl
+                  ? <img src={form.logoUrl} alt="Logo" style={{height:'48px',maxWidth:'160px',objectFit:'contain',borderRadius:'8px',border:'1px solid var(--bs-border, #2a3a5c)'}}/>
+                  : <div style={{height:'48px',width:'80px',border:'1px dashed var(--bs-border, #2a3a5c)',borderRadius:'8px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'22px'}}>🏪</div>
+                }
+                <div style={{display:'flex',gap:'8px',flexWrap:'wrap'}}>
+                  <label style={{cursor:'pointer',padding:'7px 14px',background:'var(--bs-accent-bg, rgba(56,189,248,.1))',border:'1px solid var(--bs-accent, #38bdf8)',borderRadius:'8px',fontSize:'13px',color:'var(--bs-accent, #38bdf8)',fontWeight:600}}>
+                    📷 Upload Logo
+                    <input type="file" accept="image/*" style={{display:'none'}} onChange={e=>{
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const reader = new FileReader();
+                      reader.onload = ev => {
+                        // Resize to max 200px height for nav use
+                        const img = new Image();
+                        img.onload = () => {
+                          const canvas = document.createElement('canvas');
+                          const scale = Math.min(1, 200/img.height, 400/img.width);
+                          canvas.width = img.width*scale; canvas.height = img.height*scale;
+                          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                          set('logoUrl', canvas.toDataURL('image/png', 0.85));
+                        };
+                        img.src = ev.target.result;
+                      };
+                      reader.readAsDataURL(file);
+                    }}/>
+                  </label>
+                  {form.logoUrl && (
+                    <button type="button" onClick={()=>set('logoUrl','')}
+                      style={{padding:'7px 14px',background:'rgba(248,113,113,.1)',border:'1px solid rgba(248,113,113,.3)',borderRadius:'8px',fontSize:'13px',color:'var(--bs-danger, #f87171)',cursor:'pointer',fontWeight:600}}>
+                      ✕ Remove
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
             <div className="bs-fg" style={{marginBottom:'14px'}}>
-              <label>Business Name <span style={{fontSize:'11px',color:'#64748b',fontWeight:400}}>(shown on receipts & dashboard)</span></label>
+              <label>Business Name <span style={{fontSize:'11px',color:'var(--bs-text3, #64748b)',fontWeight:400}}>(shown on receipts & dashboard)</span></label>
               <input value={form.businessName} onChange={e=>set('businessName',e.target.value)} placeholder="Your business name" />
             </div>
 
             <div className="bs-fg" style={{marginBottom:'14px'}}>
-              <label>Company / Legal Name <span style={{fontSize:'11px',color:'#64748b',fontWeight:400}}>(shown on receipts under business name)</span></label>
+              <label>Company / Legal Name <span style={{fontSize:'11px',color:'var(--bs-text3, #64748b)',fontWeight:400}}>(shown on receipts under business name)</span></label>
               <input value={form.companyName||''} onChange={e=>set('companyName',e.target.value)} placeholder="e.g. Unity Enterprises Pty Ltd" />
             </div>
 
             <div className="bs-fg" style={{marginBottom:'10px'}}>
               <label style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
                 <span>Receipt Footer — Line 1</span>
-                <span style={{fontSize:'10px',color:'#64748b',fontWeight:400}}>always shown</span>
+                <span style={{fontSize:'10px',color:'var(--bs-text3, #64748b)',fontWeight:400}}>always shown</span>
               </label>
               <input value={form.receiptFooter||''} onChange={e=>set('receiptFooter',e.target.value)} placeholder="Thank you for shopping with us!" />
             </div>
 
             <div className="bs-fg" style={{marginBottom:'12px'}}>
               <label style={{display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                <span>Receipt Footer — Line 2 <span style={{color:'#64748b',fontWeight:400,fontSize:'11px'}}>(seasonal / optional)</span></span>
+                <span>Receipt Footer — Line 2 <span style={{color:'var(--bs-text3, #64748b)',fontWeight:400,fontSize:'11px'}}>(seasonal / optional)</span></span>
                 {form.receiptFooter2 && (
                   <button type="button" onClick={()=>set('receiptFooter2','')}
-                    style={{fontSize:'10px',color:'#f87171',background:'none',border:'none',cursor:'pointer',padding:0}}>
+                    style={{fontSize:'10px',color:'var(--bs-danger, #f87171)',background:'none',border:'none',cursor:'pointer',padding:0}}>
                     ✕ Clear
                   </button>
                 )}
@@ -275,7 +316,7 @@ export default function Settings({ settings, onSave, profile, onUpdateProfile, w
 
             {/* Seasonal quick-fill presets */}
             <div>
-              <p style={{fontSize:'10px',color:'#64748b',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'6px'}}>Quick seasonal messages</p>
+              <p style={{fontSize:'10px',color:'var(--bs-text3, #64748b)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'6px'}}>Quick seasonal messages</p>
               <div style={{display:'flex',flexWrap:'wrap',gap:'6px'}}>
                 {[
                   { label:'🎄 Christmas',  msg:'Wishing you a Merry Christmas & Happy New Year!' },
@@ -293,7 +334,7 @@ export default function Settings({ settings, onSave, profile, onUpdateProfile, w
                       fontSize:'11px', padding:'4px 10px', borderRadius:'14px', cursor:'pointer',
                       background: form.receiptFooter2===p.msg ? 'rgba(56,189,248,.2)' : 'rgba(255,255,255,.05)',
                       border: form.receiptFooter2===p.msg ? '1px solid #38bdf8' : '1px solid rgba(255,255,255,.1)',
-                      color: form.receiptFooter2===p.msg ? '#38bdf8' : '#94a3b8',
+                      color: form.receiptFooter2===p.msg ? 'var(--bs-accent, #38bdf8)' : '#94a3b8',
                     }}>
                     {p.label}
                   </button>
@@ -303,10 +344,10 @@ export default function Settings({ settings, onSave, profile, onUpdateProfile, w
 
             {/* Live preview */}
             {(form.receiptFooter || form.receiptFooter2) && (
-              <div style={{marginTop:'14px',background:'#0d1526',border:'1px dashed #2a3a5c',borderRadius:'8px',padding:'10px 14px',textAlign:'center'}}>
-                <p style={{fontSize:'10px',color:'#64748b',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'6px'}}>Receipt Preview</p>
+              <div style={{marginTop:'14px',background:'var(--bs-bg, #0d1526)',border:'1px dashed #2a3a5c',borderRadius:'8px',padding:'10px 14px',textAlign:'center'}}>
+                <p style={{fontSize:'10px',color:'var(--bs-text3, #64748b)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'6px'}}>Receipt Preview</p>
                 <p style={{fontSize:'12px',color:'#94a3b8'}}>{form.receiptFooter||'—'}</p>
-                {form.receiptFooter2 && <p style={{fontSize:'12px',color:'#38bdf8',marginTop:'3px'}}>{form.receiptFooter2}</p>}
+                {form.receiptFooter2 && <p style={{fontSize:'12px',color:'var(--bs-accent, #38bdf8)',marginTop:'3px'}}>{form.receiptFooter2}</p>}
               </div>
             )}
           </div>
@@ -370,7 +411,7 @@ export default function Settings({ settings, onSave, profile, onUpdateProfile, w
                   maxLength={4}
                   style={{fontFamily:'monospace',letterSpacing:'2px',fontWeight:700}}
                 />
-                <span style={{fontSize:'10px',color:'#64748b',marginTop:'3px',display:'block'}}>Up to 4 letters/numbers</span>
+                <span style={{fontSize:'10px',color:'var(--bs-text3, #64748b)',marginTop:'3px',display:'block'}}>Up to 4 letters/numbers</span>
               </div>
               <div className="bs-fg">
                 <label>Starting Number</label>
@@ -383,13 +424,13 @@ export default function Settings({ settings, onSave, profile, onUpdateProfile, w
                   placeholder="100"
                   style={{fontFamily:'monospace'}}
                 />
-                <span style={{fontSize:'10px',color:'#64748b',marginTop:'3px',display:'block'}}>First receipt will be {(form.receiptPrefix||'UN')}{form.receiptStartNum||100}</span>
+                <span style={{fontSize:'10px',color:'var(--bs-text3, #64748b)',marginTop:'3px',display:'block'}}>First receipt will be {(form.receiptPrefix||'UN')}{form.receiptStartNum||100}</span>
               </div>
             </div>
 
             {/* Quick prefix presets */}
             <div style={{marginBottom:'12px'}}>
-              <p style={{fontSize:'10px',color:'#64748b',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'6px'}}>Quick presets</p>
+              <p style={{fontSize:'10px',color:'var(--bs-text3, #64748b)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'6px'}}>Quick presets</p>
               <div style={{display:'flex',flexWrap:'wrap',gap:'6px'}}>
                 {[
                   {label:'UN-100',  prefix:'UN',  start:100},
@@ -404,7 +445,7 @@ export default function Settings({ settings, onSave, profile, onUpdateProfile, w
                       fontSize:'11px',padding:'4px 10px',borderRadius:'14px',cursor:'pointer',fontFamily:'monospace',
                       background:(form.receiptPrefix===p.prefix&&form.receiptStartNum===p.start)?'rgba(56,189,248,.2)':'rgba(255,255,255,.05)',
                       border:(form.receiptPrefix===p.prefix&&form.receiptStartNum===p.start)?'1px solid #38bdf8':'1px solid rgba(255,255,255,.1)',
-                      color:(form.receiptPrefix===p.prefix&&form.receiptStartNum===p.start)?'#38bdf8':'#94a3b8',
+                      color:(form.receiptPrefix===p.prefix&&form.receiptStartNum===p.start)?'var(--bs-accent, #38bdf8)':'#94a3b8',
                     }}>
                     {p.label}
                   </button>
@@ -412,15 +453,15 @@ export default function Settings({ settings, onSave, profile, onUpdateProfile, w
               </div>
             </div>
 
-            <div style={{background:'#0d1526',border:'1px dashed #2a3a5c',borderRadius:'8px',padding:'10px 14px'}}>
-              <p style={{fontSize:'10px',color:'#64748b',marginBottom:'4px'}}>Preview format</p>
-              <p style={{fontFamily:'monospace',fontSize:'18px',fontWeight:700,color:'#38bdf8',letterSpacing:'2px'}}>
+            <div style={{background:'var(--bs-bg, #0d1526)',border:'1px dashed #2a3a5c',borderRadius:'8px',padding:'10px 14px'}}>
+              <p style={{fontSize:'10px',color:'var(--bs-text3, #64748b)',marginBottom:'4px'}}>Preview format</p>
+              <p style={{fontFamily:'monospace',fontSize:'18px',fontWeight:700,color:'var(--bs-accent, #38bdf8)',letterSpacing:'2px'}}>
                 {form.receiptPrefix||'UN'}{form.receiptStartNum||100}
-                <span style={{fontSize:'11px',color:'#64748b',marginLeft:'8px'}}>→</span>
+                <span style={{fontSize:'11px',color:'var(--bs-text3, #64748b)',marginLeft:'8px'}}>→</span>
                 <span style={{marginLeft:'8px'}}>{form.receiptPrefix||'UN'}{(form.receiptStartNum||100)+1}</span>
-                <span style={{fontSize:'11px',color:'#64748b',marginLeft:'8px'}}>→</span>
+                <span style={{fontSize:'11px',color:'var(--bs-text3, #64748b)',marginLeft:'8px'}}>→</span>
                 <span style={{marginLeft:'8px'}}>{form.receiptPrefix||'UN'}{(form.receiptStartNum||100)+2}</span>
-                <span style={{fontSize:'11px',color:'#64748b',marginLeft:'8px'}}>…</span>
+                <span style={{fontSize:'11px',color:'var(--bs-text3, #64748b)',marginLeft:'8px'}}>…</span>
               </p>
               <p style={{fontSize:'10px',color:'#fb923c',marginTop:'6px'}}>⚠ Changing the prefix or start number takes effect on the next sale. Existing receipts are not affected.</p>
             </div>
@@ -449,14 +490,14 @@ export default function Settings({ settings, onSave, profile, onUpdateProfile, w
                   }}>
                   <span style={{
                     fontFamily:opt.font, fontWeight:opt.weight, fontSize:opt.size,
-                    color: form.dashFont===opt.id?'#38bdf8':'#94a3b8',
+                    color: form.dashFont===opt.id?'var(--bs-accent, #38bdf8)':'#94a3b8',
                     minWidth:'110px', lineHeight:1,
                   }}>{opt.sample}</span>
                   <div>
-                    <p style={{fontSize:'12px',fontWeight:600,color:form.dashFont===opt.id?'#e2e8f0':'#64748b'}}>{opt.label}</p>
-                    <p style={{fontSize:'10px',color:'#475569'}}>{opt.desc}</p>
+                    <p style={{fontSize:'12px',fontWeight:600,color:form.dashFont===opt.id?'#e2e8f0':'var(--bs-text3, #64748b)'}}>{opt.label}</p>
+                    <p style={{fontSize:'10px',color:'var(--bs-text3, #475569)'}}>{opt.desc}</p>
                   </div>
-                  {form.dashFont===opt.id && <span style={{marginLeft:'auto',color:'#38bdf8',fontSize:'16px'}}>✓</span>}
+                  {form.dashFont===opt.id && <span style={{marginLeft:'auto',color:'var(--bs-accent, #38bdf8)',fontSize:'16px'}}>✓</span>}
                 </button>
               ))}
             </div>
@@ -471,21 +512,21 @@ export default function Settings({ settings, onSave, profile, onUpdateProfile, w
 
             {/* Built-in categories (read-only) */}
             <div style={{marginBottom:'16px'}}>
-              <p style={{fontSize:'10px',color:'#64748b',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'8px'}}>Built-in</p>
+              <p style={{fontSize:'10px',color:'var(--bs-text3, #64748b)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'8px'}}>Built-in</p>
               <div style={{display:'flex',flexWrap:'wrap',gap:'8px'}}>
                 {[
-                  {name:'Books',     icon:'📚', color:'#38bdf8'},
-                  {name:'Groceries', icon:'🛒', color:'#34d399'},
+                  {name:'Books',     icon:'📚', color:'var(--bs-accent, #38bdf8)'},
+                  {name:'Groceries', icon:'🛒', color:'var(--bs-success, #34d399)'},
                   {name:'Supplies',  icon:'🗂️',  color:'#818cf8'},
                   {name:'Other',     icon:'📦', color:'#fb923c'},
                 ].map(cat=>(
                   <div key={cat.name} style={{
                     display:'flex',alignItems:'center',gap:'6px',padding:'6px 12px',borderRadius:'20px',
-                    background:'rgba(255,255,255,.04)',border:`1px solid ${cat.color}44`,
+                    background:'var(--bs-bg3, rgba(255,255,255,.04))',border:`1px solid ${cat.color}44`,
                     color:cat.color,fontSize:'12px',fontWeight:600,
                   }}>
                     <span>{cat.icon}</span><span>{cat.name}</span>
-                    <span style={{fontSize:'10px',color:'#475569',marginLeft:'2px'}}>built-in</span>
+                    <span style={{fontSize:'10px',color:'var(--bs-text3, #475569)',marginLeft:'2px'}}>built-in</span>
                   </div>
                 ))}
               </div>
@@ -493,7 +534,7 @@ export default function Settings({ settings, onSave, profile, onUpdateProfile, w
 
             {/* Custom categories */}
             <div style={{marginBottom:'14px'}}>
-              <p style={{fontSize:'10px',color:'#64748b',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'8px'}}>
+              <p style={{fontSize:'10px',color:'var(--bs-text3, #64748b)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'8px'}}>
                 Custom ({(form.customCategories||[]).length})
               </p>
               {(form.customCategories||[]).length === 0 && (
@@ -503,13 +544,13 @@ export default function Settings({ settings, onSave, profile, onUpdateProfile, w
                 {(form.customCategories||[]).map((cat,i)=>(
                   <div key={i} style={{
                     display:'flex',alignItems:'center',gap:'6px',padding:'6px 12px',borderRadius:'20px',
-                    background:'rgba(255,255,255,.04)',border:`1px solid ${cat.color||'#64748b'}66`,
+                    background:'var(--bs-bg3, rgba(255,255,255,.04))',border:`1px solid ${cat.color||'var(--bs-text3, #64748b)'}66`,
                     color:cat.color||'#94a3b8',fontSize:'12px',fontWeight:600,
                   }}>
                     <span>{cat.icon||'📦'}</span>
                     <span>{cat.name}</span>
                     <button type="button" onClick={()=>set('customCategories',(form.customCategories||[]).filter((_,j)=>j!==i))}
-                      style={{background:'none',border:'none',cursor:'pointer',color:'#f87171',fontSize:'13px',padding:'0 0 0 2px',lineHeight:1}}>✕</button>
+                      style={{background:'none',border:'none',cursor:'pointer',color:'var(--bs-danger, #f87171)',fontSize:'13px',padding:'0 0 0 2px',lineHeight:1}}>✕</button>
                   </div>
                 ))}
               </div>
@@ -612,7 +653,7 @@ export default function Settings({ settings, onSave, profile, onUpdateProfile, w
                   style={{
                     background: 'none',
                     border: 'none',
-                    color: '#64748b',
+                    color: 'var(--bs-text3, #64748b)',
                     cursor: 'pointer',
                     fontSize: '20px',
                     padding: '0',
@@ -657,7 +698,7 @@ export default function Settings({ settings, onSave, profile, onUpdateProfile, w
                           borderRadius: '8px',
                           border: feedbackForm.type === type.value ? '1px solid #38bdf8' : '1px solid #1e293b',
                           background: feedbackForm.type === type.value ? 'rgba(56, 189, 248, 0.1)' : '#0d1526',
-                          color: feedbackForm.type === type.value ? '#38bdf8' : '#94a3b8',
+                          color: feedbackForm.type === type.value ? 'var(--bs-accent, #38bdf8)' : '#94a3b8',
                           cursor: 'pointer',
                           fontSize: '13px',
                           fontWeight: 500,
@@ -743,7 +784,7 @@ export default function Settings({ settings, onSave, profile, onUpdateProfile, w
                     fontSize: '12px',
                     color: '#94a3b8',
                   }}>
-                    <span style={{ color: '#38bdf8' }}>ℹ️</span> Your name and email ({profile?.email}) will be included with this message.
+                    <span style={{ color: 'var(--bs-accent, #38bdf8)' }}>ℹ️</span> Your name and email ({profile?.email}) will be included with this message.
                   </div>
 
                   {/* Submit Button */}
@@ -770,12 +811,12 @@ export default function Settings({ settings, onSave, profile, onUpdateProfile, w
 }
 
 const ICON_OPTIONS = ['📦','🍎','🥤','🍫','🧴','💊','🧹','📱','👕','🎮','🛠️','🔑','🌿','🐾','🎁','📷','🏋️','🌸','🍕','☕','🎨','📰','🧸','💡','🔋','🧺','🪴','🍞','🛒','✏️','🎵','🏥'];
-const COLOR_OPTIONS = ['#38bdf8','#34d399','#818cf8','#fb923c','#f87171','#a78bfa','#fbbf24','#4ade80','#f472b6','#22d3ee','#e879f9','#86efac'];
+const COLOR_OPTIONS = ['var(--bs-accent, #38bdf8)','#34d399','#818cf8','#fb923c','#f87171','#a78bfa','#fbbf24','#4ade80','#f472b6','#22d3ee','#e879f9','#86efac'];
 
 function AddCategoryRow({ onAdd, existing }) {
   const [name,  setName]  = React.useState('');
   const [icon,  setIcon]  = React.useState('📦');
-  const [color, setColor] = React.useState('#38bdf8');
+  const [color, setColor] = React.useState('var(--bs-accent, #38bdf8)');
   const [err,   setErr]   = React.useState('');
   const [showIcons, setShowIcons] = React.useState(false);
 
@@ -786,12 +827,12 @@ function AddCategoryRow({ onAdd, existing }) {
       setErr('This category already exists'); return;
     }
     onAdd({ name: trimmed, icon, color });
-    setName(''); setIcon('📦'); setColor('#38bdf8'); setErr(''); setShowIcons(false);
+    setName(''); setIcon('📦'); setColor('var(--bs-accent, #38bdf8)'); setErr(''); setShowIcons(false);
   };
 
   return (
-    <div style={{background:'#0d1526',border:'1px dashed #2a3a5c',borderRadius:'10px',padding:'14px'}}>
-      <p style={{fontSize:'11px',color:'#64748b',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'10px'}}>Add New Category</p>
+    <div style={{background:'var(--bs-bg, #0d1526)',border:'1px dashed #2a3a5c',borderRadius:'10px',padding:'14px'}}>
+      <p style={{fontSize:'11px',color:'var(--bs-text3, #64748b)',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'10px'}}>Add New Category</p>
 
       <div style={{display:'flex',gap:'8px',flexWrap:'wrap',alignItems:'flex-start'}}>
         {/* Icon picker */}
@@ -800,14 +841,14 @@ function AddCategoryRow({ onAdd, existing }) {
             onClick={()=>setShowIcons(s=>!s)}
             style={{
               width:'42px',height:'42px',borderRadius:'8px',fontSize:'20px',cursor:'pointer',
-              background:'#1a2540',border:'1px solid #2a3a5c',display:'flex',alignItems:'center',justifyContent:'center',
+              background:'#1a2540',border:'1px solid var(--bs-border, #2a3a5c)',display:'flex',alignItems:'center',justifyContent:'center',
             }}>
             {icon}
           </button>
           {showIcons && (
             <div style={{
               position:'absolute',top:'48px',left:0,zIndex:50,
-              background:'#1a2540',border:'1px solid #2a3a5c',borderRadius:'10px',
+              background:'#1a2540',border:'1px solid var(--bs-border, #2a3a5c)',borderRadius:'10px',
               padding:'8px',display:'grid',gridTemplateColumns:'repeat(8,1fr)',gap:'4px',width:'240px',
             }}>
               {ICON_OPTIONS.map(ic=>(
@@ -830,7 +871,7 @@ function AddCategoryRow({ onAdd, existing }) {
             style={{width:'100%',borderColor:err?'#f87171':''}}
             onKeyDown={e=>e.key==='Enter'&&(e.preventDefault(),handleAdd())}
           />
-          {err && <span style={{color:'#f87171',fontSize:'11px',marginTop:'3px',display:'block'}}>⚠ {err}</span>}
+          {err && <span style={{color:'var(--bs-danger, #f87171)',fontSize:'11px',marginTop:'3px',display:'block'}}>⚠ {err}</span>}
         </div>
 
         {/* Color swatches */}
@@ -850,7 +891,7 @@ function AddCategoryRow({ onAdd, existing }) {
           {name && (
             <div style={{
               display:'flex',alignItems:'center',gap:'5px',padding:'5px 12px',borderRadius:'16px',
-              background:'rgba(255,255,255,.04)',border:`1px solid ${color}66`,color,fontSize:'12px',fontWeight:600,
+              background:'var(--bs-bg3, rgba(255,255,255,.04))',border:`1px solid ${color}66`,color,fontSize:'12px',fontWeight:600,
             }}>
               {icon} {name.trim()||'Preview'}
             </div>
@@ -865,7 +906,7 @@ function AddCategoryRow({ onAdd, existing }) {
 }
 
 const lbl = { display:'block', marginBottom:4, fontSize:12, color:'#94a3b8', fontWeight:500 };
-const inp = { width:'100%', padding:'10px 12px', background:'#0f172a', border:'1px solid #1e293b', borderRadius:8, color:'#f1f5f9', fontSize:14, boxSizing:'border-box' };
+const inp = { width:'100%', padding:'10px 12px', background:'var(--bs-input, #0f172a)', border:'1px solid var(--bs-border, #1e293b)', borderRadius:8, color:'var(--bs-text, #f1f5f9)', fontSize:14, boxSizing:'border-box' };
 
 // Add animations to document
 if (typeof document !== 'undefined' && !document.getElementById('feedback-animations')) {

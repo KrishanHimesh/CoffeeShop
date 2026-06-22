@@ -141,10 +141,12 @@ export default function Workers({ workers, onAdd, onUpdate, onDelete, profile, t
             onClick={() => setPwModal({ type:'self', worker: profile })}>
             🔑 Change My Password
           </button>
-          <button className="bs-add"
-            onClick={() => { setCreateError(''); setModal({ data: null }); }}>
-            + Add Worker
-          </button>
+          {profile?.role === 'owner' && (
+            <button className="bs-add"
+              onClick={() => { setCreateError(''); setModal({ data: null }); }}>
+              + Add Worker
+            </button>
+          )}
         </div>
       </div>
 
@@ -210,24 +212,31 @@ export default function Workers({ workers, onAdd, onUpdate, onDelete, profile, t
       {/* Permissions table */}
       <div className="bs-perm-table-wrap" style={{ marginTop:20 }}>
         <p className="bs-dcard-ttl" style={{ marginBottom:'12px' }}>Role Permissions</p>
-        <table className="bs-tbl">
+        <div style={{overflowX:'auto'}}>
+        <table className="bs-tbl" style={{minWidth:'600px'}}>
           <thead>
             <tr>
               <th>Permission</th>
               <th>👑 Owner</th>
               <th>🔧 Manager</th>
               <th>🛒 Cashier</th>
+              <th>👨‍🍳 Kitchen</th>
+              <th>🔔 Orders</th>
             </tr>
           </thead>
           <tbody>
             {[
-              ['View Dashboard',   true,  true,  false],
-              ['POS / Make Sales', true,  true,  true ],
-              ['Manage Inventory', true,  true,  false],
-              ['View All Reports', true,  true,  false],
-              ['Manage Workers',   true,  false, false],
-              ['Adjust Prices',    true,  true,  false],
-              ['Delete Records',   true,  false, false],
+              ['View Dashboard',      true,  true,  false, false, false],
+              ['POS / Make Sales',    true,  true,  true,  false, false],
+              ['Kitchen Display',     true,  true,  false, true,  false],
+              ['Orders Ready',        true,  true,  false, true,  true ],
+              ['Manage Inventory',    true,  true,  false, true,  false],
+              ['View All Reports',    true,  true,  false, false, false],
+              ['Manage Workers',      true,  false, false, false, false],
+              ['Adjust Prices',       true,  true,  false, false, false],
+              ['Delete Records',      true,  false, false, false, false],
+              ['Manage Suppliers',    true,  true,  false, false, false],
+              ['Change Appearance',   true,  true,  true,  true,  false],
             ].map(([label, ...perms]) => (
               <tr key={label}>
                 <td>{label}</td>
@@ -238,6 +247,7 @@ export default function Workers({ workers, onAdd, onUpdate, onDelete, profile, t
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       {/* ── Add/Edit modal ── */}
