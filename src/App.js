@@ -6,6 +6,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React from 'react';
+import { Analytics } from '@vercel/analytics/react';
 import BookShelf  from './app/BookShelf';
 import AdminPanel from './app/AdminPanel';
 import './index.css';
@@ -15,8 +16,18 @@ export default function App() {
   const path = window.location.pathname;
 
   if (path === '/admin' || path === '/admin/') {
-    return <AdminPanel />;
+    return (
+      <>
+        <AdminPanel />
+        <Analytics />
+      </>
+    );
   }
 
-  return <BookShelf />;
+  return (
+    <>
+      <BookShelf />
+      <Analytics />
+    </>
+  );
 }
