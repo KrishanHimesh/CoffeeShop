@@ -12,8 +12,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   collection, onSnapshot, addDoc, updateDoc, deleteDoc,
-  doc, query, orderBy, serverTimestamp, setDoc, getDoc, getDocs,
-  runTransaction,
+  doc, query, orderBy, where, serverTimestamp, setDoc, getDoc, getDocs,
+  collectionGroup, runTransaction,
 } from 'firebase/firestore';
 import {
   signInWithEmailAndPassword, signOut, onAuthStateChanged,
@@ -390,7 +390,7 @@ export function useStore() {
           const claims      = tokenResult.claims;
           let tid           = claims.tenantId || null;
           let userPlan      = claims.plan     || 'trial';
-          let role          = claims.role     || 'owner';
+          let role          = claims.role     || 'cashier'; // safe default — workers doc overrides this
 
           // Step 2 — /userTenants/{uid} lookup
           if (!tid) {
@@ -400,7 +400,7 @@ export function useStore() {
                 const ut = utSnap.data();
                 tid      = ut.tenantId || null;
                 userPlan = ut.plan     || 'trial';
-                role     = ut.role     || 'owner';
+                role     = ut.role     || 'cashier';
                 console.log('[useStore] Found tenantId via userTenants:', tid);
               }
             } catch (e) {
@@ -408,38 +408,87 @@ export function useStore() {
             }
           }
 
-          // Step 2b — always fetch the LIVE plan + expiry from the store doc
-          // This ensures workers always reflect the owner's current subscription,
-          // even if the owner upgraded after the worker account was created.
-          // Also checks if the license has expired and downgrades if so.
-          if (tid) {
+          // Step 2 fallback — if userTenants didn't resolve tenantId (missing doc,
+          // old worker created before this field was written, or permissions error),
+          // search the workers collectionGroup for this uid.
+          // This recovers workers who were created before the userTenants write was added.
+          if (!tid) {
             try {
-              const storeSnap = await getDoc(doc(db, 'stores', tid));
-              if (storeSnap.exists()) {
-                const storeData    = storeSnap.data();
-                const livePlan     = storeData.plan;
-                const licenseExpiry = storeData.licenseExpiry;
-
-                // Check expiry
-                let isExpired = false;
-                if (licenseExpiry) {
-                  const expiryDate = licenseExpiry.toDate ? licenseExpiry.toDate() : new Date(licenseExpiry);
-                  isExpired = expiryDate < new Date();
-                  if (isExpired) {
-                    console.warn('[useStore] License expired on', expiryDate.toLocaleDateString());
+              console.log('[useStore] userTenants missing/empty — trying collectionGroup worker lookup');
+              const workerQ = query(collectionGroup(db, 'workers'), where('uid', '==', u.uid));
+              const workerSnap = await getDocs(workerQ);
+              if (!workerSnap.empty) {
+                const workerDoc = workerSnap.docs[0];
+                const workerData = workerDoc.data();
+                tid      = workerData.tenantId || null;
+                role     = workerData.role     || 'cashier';
+                userPlan = workerData.plan      || 'trial';
+                console.log('[useStore] Found worker via collectionGroup:', workerData.name, 'role:', role, 'tenantId:', tid);
+                // Backfill the userTenants doc so future logins are faster
+                if (tid) {
+                  try {
+                    await setDoc(doc(db, 'userTenants', u.uid), {
+                      tenantId: tid, role, plan: userPlan, updatedAt: serverTimestamp(),
+                    });
+                    console.log('[useStore] Backfilled userTenants for', u.uid);
+                  } catch (e2) {
+                    console.warn('[useStore] userTenants backfill failed (non-critical):', e2.message);
                   }
-                }
-
-                if (livePlan && !isExpired) {
-                  userPlan = livePlan;
-                  console.log('[useStore] Live plan from store doc:', livePlan);
-                } else if (isExpired) {
-                  userPlan = 'none'; // Force to no plan — will show subscription wall
-                  console.warn('[useStore] License expired — showing subscription wall');
                 }
               }
             } catch (e) {
-              console.warn('[useStore] Store plan read failed:', e.message);
+              console.warn('[useStore] collectionGroup worker lookup failed:', e.message, '— add Firestore rule: allow read on workers collectionGroup');
+            }
+          }
+
+          // Step 2b — always fetch the LIVE plan from the store doc AND subscriptions doc.
+          // Workers always inherit the owner's subscription, not their own plan field.
+          // We check both docs and use the higher-tier plan found in either.
+          const PLAN_RANK = { none:0, trial:1, starter:2, pro:3, business:4 };
+          if (tid) {
+            try {
+              const [storeSnap, subSnap] = await Promise.all([
+                getDoc(doc(db, 'stores', tid)),
+                getDoc(doc(db, 'subscriptions', tid)),
+              ]);
+
+              let livePlan = null;
+              let isExpired = false;
+
+              if (storeSnap.exists()) {
+                const storeData = storeSnap.data();
+                livePlan = storeData.plan || null;
+                const licenseExpiry = storeData.licenseExpiry;
+                if (licenseExpiry) {
+                  const expiryDate = licenseExpiry.toDate ? licenseExpiry.toDate() : new Date(licenseExpiry);
+                  isExpired = expiryDate < new Date();
+                  if (isExpired) console.warn('[useStore] License expired on', expiryDate.toLocaleDateString());
+                }
+              }
+
+              // Subscriptions doc may have a more up-to-date plan (set by payment flow)
+              if (subSnap.exists()) {
+                const subData = subSnap.data();
+                const subPlan = subData.plan || null;
+                const subStatus = subData.status || '';
+                // Use subscription plan if it's a higher tier than the store doc, and isn't expired/cancelled
+                if (subPlan && !['cancelled','expired','none'].includes(subStatus)) {
+                  if ((PLAN_RANK[subPlan] || 0) > (PLAN_RANK[livePlan] || 0)) {
+                    livePlan = subPlan;
+                    console.log('[useStore] Higher plan found in subscriptions doc:', subPlan);
+                  }
+                }
+              }
+
+              if (livePlan && !isExpired) {
+                userPlan = livePlan;
+                console.log('[useStore] Final resolved plan:', userPlan);
+              } else if (isExpired) {
+                userPlan = 'none';
+                console.warn('[useStore] License expired — showing subscription wall');
+              }
+            } catch (e) {
+              console.warn('[useStore] Store/subscription plan read failed:', e.message);
             }
           }
 
@@ -451,7 +500,7 @@ export function useStore() {
               id:       u.uid,
               name:     u.displayName || u.email?.split('@')[0] || 'User',
               email:    u.email,
-              role:     'owner',
+              role:     'cashier', // safe default — don't grant owner access to unknown users
               plan:     'trial',
               tenantId: null,
             };
@@ -465,11 +514,16 @@ export function useStore() {
           setTenantId(tid);
           setPlan(userPlan);
 
-          // Load worker profile
+          // Load worker profile — workers/{uid} is the authoritative source for role
           try {
             const snap = await getDoc(tenantDoc(tid, 'workers', u.uid));
             if (snap.exists()) {
-              const p = { id: u.uid, ...snap.data(), role, plan: userPlan, tenantId: tid };
+              const workerData = snap.data();
+              // Always use the role from the workers Firestore doc — this is the
+              // authoritative source, since userTenants.role can default to 'owner'
+              // if the field was omitted or the record is stale.
+              const workerRole = workerData.role || role;
+              const p = { id: u.uid, ...workerData, role: workerRole, plan: userPlan, tenantId: tid };
               setProfile(p);
               lsSave('bs2_session', p);
               setFbActive(true);

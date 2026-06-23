@@ -100,15 +100,15 @@ export default function Workers({ workers, onAdd, onUpdate, onDelete, profile, t
       setModal(null);
     } catch (err) {
       if (err.code === 'auth/email-already-in-use') {
-        setCreateError('A worker with this email already exists.');
+        setCreateError('This email is already registered. If this is a worker you want to re-add, remove them first or use a different email address.');
       } else if (err.code === 'auth/weak-password') {
         setCreateError('Password must be at least 8 characters.');
       } else if (err.code === 'auth/invalid-email') {
         setCreateError('Please enter a valid email address.');
+      } else if (err.code === 'permission-denied' || err.message?.includes('Missing or insufficient')) {
+        setCreateError('Firestore permission error — make sure your security rules allow writing to userTenants.');
       } else {
-        // Fallback — save Firestore record only (worker can't log in but is recorded)
-        try { await onAdd({ ...data, plan: profile?.plan || 'trial' }); setModal(null); }
-        catch (e2) { setCreateError('Error: ' + (e2.message || err.message)); }
+        setCreateError('Could not create worker: ' + (err.message || 'Unknown error'));
       }
     }
     setCreating(false);
